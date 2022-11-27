@@ -1,0 +1,2 @@
+# transition error (SLAM unit), scale, transition error (Ground truth unit)
+python ./evaluation/evaluate_ate_scale.py ~/Dataset/tumVI/dataset-room1_512_16/mav0/mocap0/data.csv ./CameraTrajectory.txt --plot ./evaluation/traj.png --save ./evaluation/alignedTraj.txt

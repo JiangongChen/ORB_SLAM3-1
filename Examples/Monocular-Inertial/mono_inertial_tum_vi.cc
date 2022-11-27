@@ -137,6 +137,26 @@ int main(int argc, char **argv)
             // Read image from file
             im = cv::imread(vstrImageFilenames[seq][ni],cv::IMREAD_GRAYSCALE); //,cv::IMREAD_GRAYSCALE);
 
+            // modify the value of the input image to simulate the blocked camera
+            //cout << im.rows << im.cols << endl; 
+            if (ni>600) {
+                //cout << vstrImageFilenames[seq][ni] << endl; 
+                for (int i=0;i<im.rows;i++){
+                    for (int j=im.cols*10/10;j<im.cols;j++){
+                        //cout << i << j << endl; 
+                        im.at<uchar>(i,j) = (uchar) 0; 
+                    }
+                }
+            }
+            //cout << im.type() << endl; 
+            //cout << (int) im.at<uchar>(0,0) << endl;  
+            //im.at<uchar>(0,0) = (uchar) 255; 
+            //cout << (int) im.at<uchar>(0,0) << endl;  
+            if (ni>1000) {
+                cout << "stop SLAM earlier" << endl;
+                break; 
+            }
+
             // clahe
             clahe->apply(im,im);
 
