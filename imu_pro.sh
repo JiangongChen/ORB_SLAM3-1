@@ -1,0 +1,1 @@
+python3 Examples/Calibration/python_scripts/process_imu.py ~/kalibr_workspace/pixel4/calib4/

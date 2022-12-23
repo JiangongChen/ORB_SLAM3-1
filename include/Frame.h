@@ -67,6 +67,9 @@ public:
     // Constructor for Monocular cameras.
     Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, GeometricCamera* pCamera, cv::Mat &distCoef, const float &bf, const float &thDepth, Frame* pPrevF = static_cast<Frame*>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
 
+    // Constructor for Edge cameras with only keypoints and descriptors.
+    Frame(const vector<cv::KeyPoint> &keypoints, const cv::Mat &descriptors, int frameID, int clientID, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, GeometricCamera* pCamera, cv::Mat &distCoef, const float &bf, const float &thDepth, Frame* pPrevF = static_cast<Frame*>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
+
     // Destructor
     // ~Frame();
 
@@ -271,6 +274,9 @@ public:
     static long unsigned int nNextId;
     long unsigned int mnId;
 
+    // indicates to which client this frame belongs
+    int clientId; 
+
     // Reference Keyframe.
     KeyFrame* mpReferenceKF;
 
@@ -312,6 +318,7 @@ private:
 
     // Computes image bounds for the undistorted image (called in the constructor).
     void ComputeImageBounds(const cv::Mat &imLeft);
+    void ComputeImageBounds();
 
     // Assign keypoints to the grid for speed up feature matching (called in the constructor).
     void AssignFeaturesToGrid();

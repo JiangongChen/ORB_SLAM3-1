@@ -60,7 +60,9 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Atlas* pAtlas,
              KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, Settings* settings, const string &_nameSeq=std::string());
-
+    // used for the other users
+    Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Atlas* pAtlas,
+             KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, Settings* settings, const int id, const string &_nameSeq=std::string());
     ~Tracking();
 
     // Parse the config file
@@ -72,6 +74,7 @@ public:
     Sophus::SE3f GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight, const double &timestamp, string filename);
     Sophus::SE3f GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp, string filename);
     Sophus::SE3f GrabImageMonocular(const cv::Mat &im, const double &timestamp, string filename);
+    Sophus::SE3f GrabImageEdge(Frame* frame);
 
     void GrabImuData(const IMU::Point &imuMeasurement);
 
@@ -107,6 +110,17 @@ public:
     void SaveSubTrajectory(string strNameFile_frames, string strNameFile_kf, Map* pMap);
 
     float GetImageScale();
+
+    // get some parameters
+    ORBVocabulary* GetVocab(){
+        return mpORBVocabulary;
+    };
+    GeometricCamera* GetCamera(){
+        return mpCamera; 
+    };
+    IMU::Calib* GetIMUCalib(){
+        return mpImuCalib;
+    };
 
 #ifdef REGISTER_LOOP
     void RequestStop();

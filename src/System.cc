@@ -223,6 +223,9 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpLoopCloser->SetTracker(mpTracker);
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
 
+    // add to the vector of tracking pointers
+    mpTrackerAllClients.push_back(mpTracker); 
+
     //usleep(10*1000*1000);
 
     //Initialize the Viewer thread and launch
@@ -239,6 +242,25 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     // Fix verbosity
     Verbose::SetTh(Verbose::VERBOSITY_QUIET);
 
+}
+
+void System::AddClient(int clientID){
+    // skip the first client since it is already done in initialization
+    if (clientID == 0) return; 
+
+    //Initialize the Tracking thread
+    /*Tracking* mpTrackerClient = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
+                             mpMap, mpKeyFrameDatabase, strSettingsFilePath, mSensor, clientID);
+    if(mpViewer!=nullptr) mpTrackerClient->SetViewer(mpViewer);
+    mpTrackerClient->SetLocalMapper(mpLocalMapper);
+    mpTrackerClient->SetLoopClosing(mpLoopCloser);
+
+    mpLocalMapper->AddTracker(mpTrackerClient); 
+    mpLoopCloser->AddTracker(mpTrackerClient); 
+
+    // add client tracking and make sure it is in order
+    mpTrackerAllClients.push_back(mpTrackerClient); 
+    mpTrackerAllClients[clientID] = mpTrackerClient;*/
 }
 
 Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<IMU::Point>& vImuMeas, string filename)
@@ -473,7 +495,75 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
     return Tcw;
 }
 
+Sophus::SE3f System::TrackEdge(Frame* frame){
+    {
+        unique_lock<mutex> lock(mMutexReset);
+        if(mbShutDown)
+            return Sophus::SE3f();
+    }
 
+    if(mSensor!=MONOCULAR && mSensor!=IMU_MONOCULAR)
+    {
+        cerr << "ERROR: you called TrackMonocular but input sensor was not set to Monocular nor Monocular-Inertial." << endl;
+        exit(-1);
+    }
+
+    int client_id = frame->clientId; 
+    Tracking* mpTrackerClient = GetTracker(client_id);
+
+    // Check mode change
+    {
+        unique_lock<mutex> lock(mMutexMode);
+        if(mbActivateLocalizationMode)
+        {
+            mpLocalMapper->RequestStop();
+
+            // Wait until Local Mapping has effectively stopped
+            while(!mpLocalMapper->isStopped())
+            {
+                usleep(1000);
+            }
+
+            mpTrackerClient->InformOnlyTracking(true);
+            mbActivateLocalizationMode = false;
+        }
+        if(mbDeactivateLocalizationMode)
+        {
+            mpTrackerClient->InformOnlyTracking(false);
+            mpLocalMapper->Release();
+            mbDeactivateLocalizationMode = false;
+        }
+    }
+
+    // Check reset
+    {
+        unique_lock<mutex> lock(mMutexReset);
+        if(mbReset)
+        {
+            mpTrackerClient->Reset();
+            mbReset = false;
+            mbResetActiveMap = false;
+        }
+        else if(mbResetActiveMap)
+        {
+            cout << "SYSTEM-> Reseting active map in monocular case" << endl;
+            mpTrackerClient->ResetActiveMap();
+            mbResetActiveMap = false;
+        }
+    }
+
+    // imu data already grabed in client thread
+
+    Sophus::SE3f Tcw = mpTrackerClient->GrabImageEdge(frame);
+
+    if (client_id==0){
+        unique_lock<mutex> lock2(mMutexState);
+        mTrackingState = mpTrackerClient->mState;
+        mTrackedMapPoints = mpTrackerClient->mCurrentFrame.mvpMapPoints;
+        mTrackedKeyPointsUn = mpTrackerClient->mCurrentFrame.mvKeysUn;
+    }
+    return Tcw;
+}
 
 void System::ActivateLocalizationMode()
 {
@@ -1317,11 +1407,20 @@ void System::SaveDebugData(const int &initIdx)
     f.close();
 }
 
+Tracking* System::GetTracker(int id){
+    return mpTrackerAllClients[id];
+}
 
 int System::GetTrackingState()
 {
     unique_lock<mutex> lock(mMutexState);
     return mTrackingState;
+}
+
+int System::GetTrackingState(int clientID)
+{
+    unique_lock<mutex> lock(mMutexState);
+    return mpTrackerAllClients[clientID]->mState;
 }
 
 vector<MapPoint*> System::GetTrackedMapPoints()

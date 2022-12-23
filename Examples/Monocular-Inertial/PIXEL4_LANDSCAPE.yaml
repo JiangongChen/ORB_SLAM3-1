@@ -8,23 +8,23 @@ File.version: "1.0"
 Camera.type: "PinHole"
 
 # Right Camera calibration and distortion parameters (OpenCV)
-Camera1.fx: 532.7235535550684
-Camera1.fy: 537.1857782361212
-Camera1.cx: 352.67449266912655
-Camera1.cy: 222.14745320662735
+Camera1.fx: 503.19876229605177
+Camera1.fy: 502.62459530251454
+Camera1.cx: 319.9114074884858
+Camera1.cy: 243.7574985135578
 
 # distortion parameters
-Camera1.k1: -0.05960184119381245
-Camera1.k2: 0.005442077474166437
-Camera1.p1: -0.012805050146011928
-Camera1.p2: 0.02028624520064247
+Camera1.k1: 0.11614715920989596
+Camera1.k2: -0.2867339644013739
+Camera1.p1: 0.003478242490388648
+Camera1.p2: -0.0024930203589562773
 
 # Camera resolution
 Camera.width: 640
 Camera.height: 480
 
 # Camera frames per second 
-Camera.fps: 30
+Camera.fps: 10
 
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
 Camera.RGB: 1
@@ -34,20 +34,20 @@ IMU.T_b_c1: !!opencv-matrix
    rows: 4
    cols: 4
    dt: f
-   data:  [0.0523999,  -0.99625411,  0.06878952,  0.01240258,
-          -0.99756016, -0.05540162, -0.04247802,  0.04411042,
-           0.04612995, -0.06639584, -0.99672645,  0.05822504,
+   data:  [ -0.01111061, -0.99976648,  0.01853506,  0.00418618,
+          -0.99964691,  0.0115529,   0.02392878,  0.04375819,
+          -0.02413733, -0.01826265, -0.99954183, -0.01661138,
            0.,          0.,          0. ,         1.        ]
 
 # Do not insert KFs when recently lost
 IMU.InsertKFsWhenLost: 0
 
 # IMU noise (Use those from VINS-mono)
-IMU.NoiseGyro: 4.7468e-4  # rad/s^0.5
-IMU.NoiseAcc: 1.5881e-4 # 1.47e-3 #1e-2 # m/s^1.5
-IMU.GyroWalk: 1.0338e-6 # rad/s^1.5
-IMU.AccWalk: 2.7614e-7 # m/s^2.5
-IMU.Frequency: 100.0
+IMU.NoiseAcc: 6.9747402337676763e-02 # 1.47e-3 #1e-2 # m/s^1.5
+IMU.AccWalk: 4.8494441580436914e-03 # m/s^2.5
+IMU.NoiseGyro: 7.2071494165659885e-03  # rad/s^0.5
+IMU.GyroWalk: 1.0901832875627952e-04 # rad/s^1.5
+IMU.Frequency: 103.27
 
 #--------------------------------------------------------------------------------------------
 # ORB Parameters

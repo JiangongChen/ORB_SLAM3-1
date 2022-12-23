@@ -1614,6 +1614,25 @@ Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &times
     return mCurrentFrame.GetPose();
 }
 
+Sophus::SE3f Tracking::GrabImageEdge(Frame* frame){
+    // TODO: link with configuration file
+    mImGray = cv::Mat(480,640,CV_8UC1, 1);
+    mCurrentFrame = *frame; 
+    if (mState==NO_IMAGES_YET)
+        t0=frame->mTimeStamp;
+
+    mCurrentFrame.mNameFile = "";
+    mCurrentFrame.mnDataset = mnNumDataset;
+
+    #ifdef REGISTER_TIMES
+        vdORBExtract_ms.push_back(mCurrentFrame.mTimeORB_Ext);
+    #endif
+
+    lastID = mCurrentFrame.mnId;
+    Track();
+
+    return mCurrentFrame.GetPose();
+}
 
 void Tracking::GrabImuData(const IMU::Point &imuMeasurement)
 {

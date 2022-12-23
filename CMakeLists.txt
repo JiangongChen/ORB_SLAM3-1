@@ -82,6 +82,8 @@ src/GeometricTools.cc
 src/TwoViewReconstruction.cc
 src/Config.cc
 src/Settings.cc
+src/Socket/client.cc
+src/Socket/server.cc
 include/System.h
 include/Tracking.h
 include/LocalMapping.h
@@ -111,7 +113,12 @@ include/GeometricTools.h
 include/TwoViewReconstruction.h
 include/SerializationUtils.h
 include/Config.h
-include/Settings.h)
+include/Settings.h
+include/Socket/client.h
+include/Socket/cmdpkt.h
+include/Socket/imudata.h
+include/Socket/server.h
+include/Socket/slampkt_vi.h)
 
 add_subdirectory(Thirdparty/g2o)
 
@@ -225,6 +232,14 @@ target_link_libraries(mono_inertial_euroc ${PROJECT_NAME})
 add_executable(mono_inertial_tum_vi
         Examples/Monocular-Inertial/mono_inertial_tum_vi.cc)
 target_link_libraries(mono_inertial_tum_vi ${PROJECT_NAME})
+
+add_executable(mono_inertial_pixel
+        Examples/Monocular-Inertial/mono_inertial_pixel.cc)
+target_link_libraries(mono_inertial_pixel ${PROJECT_NAME})
+
+add_executable(mono_inertial_edge
+        Examples/Monocular-Inertial/mono_inertial_edge.cc)
+target_link_libraries(mono_inertial_edge ${PROJECT_NAME})
 
 if(realsense2_FOUND)
     add_executable(mono_inertial_realsense_t265

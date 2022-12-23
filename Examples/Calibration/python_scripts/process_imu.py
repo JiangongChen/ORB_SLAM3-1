@@ -33,7 +33,7 @@ class dataset:
         self.gyro = np.zeros((1, 4))
         self.timesCam = np.zeros((1, 1))
 
-        timesName = self.name + "/cam0/times.txt"
+        timesName = self.name + "/timestamp.txt"
         timeFile = open(timesName, "r")
         i = 0
         next = 0
@@ -47,7 +47,7 @@ class dataset:
             print(i, "/", next)
 
 
-        accName = self.name + "/IMU/acc.txt"
+        accName = self.name + "/IMU/acce.csv"
         accFile = open(accName, "r")
         i = 0
         for line in accFile:
@@ -57,7 +57,7 @@ class dataset:
             self.acc = np.pad(self.acc, ((0, 1), (0, 0)), mode='constant', constant_values=0)
             i = i + 1
 
-        gyroName = self.name + "/IMU/gyro.txt"
+        gyroName = self.name + "/IMU/gyro.csv"
         gyroFile = open(gyroName, "r")
         i = 0
         for line in gyroFile:
@@ -134,7 +134,7 @@ class dataset:
             i = 0
             for num in row:
                 if i == 0:
-                    imuFile.write(str((int)(1e9 * num)))
+                    imuFile.write(str((int)(num)))
                     i = 1
                 else:
                     imuFile.write("," + str(num))
@@ -142,7 +142,7 @@ class dataset:
             imuFile.write("\n")
 
     def saveCorrectTimes(self):
-        timesName = self.name + "/cam0/corrTimes.txt"
+        timesName = self.name + "/corrTimes.txt"
         timesFile = open(timesName, "w")
         print("self.timesCam shape ", self.timesCam.shape)
         for row in self.timesCam:
