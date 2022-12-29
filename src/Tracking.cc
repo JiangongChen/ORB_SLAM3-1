@@ -1618,6 +1618,8 @@ Sophus::SE3f Tracking::GrabImageEdge(Frame* frame){
     // TODO: link with configuration file
     mImGray = cv::Mat(480,640,CV_8UC1, 1);
     mCurrentFrame = *frame; 
+    mCurrentFrame.SetPrevFrame(&mLastFrame);
+
     if (mState==NO_IMAGES_YET)
         t0=frame->mTimeStamp;
 

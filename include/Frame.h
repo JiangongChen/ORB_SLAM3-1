@@ -82,6 +82,11 @@ public:
     // Set the camera pose. (Imu pose is not modified!)
     void SetPose(const Sophus::SE3<float> &Tcw);
 
+    // set previous frame
+    void SetPrevFrame(Frame* prev){
+        mpPrevFrame = prev;
+    };
+
     // Set IMU velocity
     void SetVelocity(Eigen::Vector3f Vw);
 

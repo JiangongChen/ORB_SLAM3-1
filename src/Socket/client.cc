@@ -134,12 +134,13 @@ void Client::receiveLoop() {
                                                 data.gyro_[0],data.gyro_[1],data.gyro_[2],
                                                 data.ts_/1e9));
         }
-        ORB_SLAM3::Frame* frame = new ORB_SLAM3::Frame(keypoints_, descriptors_, frameID, id_, stamp/1e9, extractor_, mpTracker->GetVocab(), mpTracker->GetCamera(), mDistCoef, mbf, mThDepth, lastFrame, *mpTracker->GetIMUCalib());
-        lastFrame = frame; 
+        ORB_SLAM3::Frame* frame = new ORB_SLAM3::Frame(keypoints_, descriptors_, frameID, id_, stamp/1e9, extractor_, mpTracker->GetVocab(), mpTracker->GetCamera(), mDistCoef, mbf, mThDepth, nullptr, *mpTracker->GetIMUCalib());
+        //lastFrame = frame; 
         //server_->InsertFrame(frame); 
         InsertFrame(frame); 
 
-        //cout << "frame id " << frameID << endl;
+        //cout << "frame id " << frameID << "number of IMU:" << pkt->imus_.size() << endl;
+        //cout << "image stamp:" << stamp << " first stamp of IMU:" << pkt->imus_[0].ts_ << " last stamp of IMU:"<<pkt->imus_[pkt->imus_.size()-1].ts_<<endl; 
         //cout << "keypoints " << keypoints_[10].pt << " " << keypoints_[71].pt << endl;
         //cout << "descriptors " << descriptors_.row(10) << endl;
         //cout << fixed << "time stamp " << frame->mTimeStamp << endl;

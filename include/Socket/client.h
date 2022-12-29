@@ -70,6 +70,7 @@ public:
     std::mutex mMutexClient;
 
     std::list<ORB_SLAM3::Frame*> mlNewFrames;
+    // will not be used, update lastFrame in tracking.cc
     ORB_SLAM3::Frame* lastFrame;
 
     //Calibration matrix
