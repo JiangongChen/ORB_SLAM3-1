@@ -46,9 +46,14 @@ public:
     void DrawMapPoints();
     void DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph, const bool bDrawInertialGraph, const bool bDrawOptLba);
     void DrawCurrentCamera(pangolin::OpenGlMatrix &Twc);
+    void DrawCurrentCamera(int clientID, pangolin::OpenGlMatrix &Twc);
     void SetCurrentCameraPose(const Sophus::SE3f &Tcw);
+    // update current camera pose for specific client
+    void SetCurrentCameraPose(int clientID, const Sophus::SE3f &Tcw); 
     void SetReferenceKeyFrame(KeyFrame *pKF);
     void GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M, pangolin::OpenGlMatrix &MOw);
+    void GetCurrentOpenGLCameraMatrix(int clientID, pangolin::OpenGlMatrix &M, pangolin::OpenGlMatrix &MOw);
+    int GetActiveClientsNum(){return mCameraPoseAllClients.size();};
 
 private:
 
@@ -62,6 +67,8 @@ private:
     float mCameraLineWidth;
 
     Sophus::SE3f mCameraPose;
+    // store camera poses for all clients
+    vector<Sophus::SE3f> mCameraPoseAllClients; 
 
     std::mutex mMutexCamera;
 

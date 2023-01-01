@@ -148,6 +148,9 @@ public:
     // Input sensor
     int mSensor;
 
+    // indicates the client ID, each client binds with a tracking thread
+    int clientID=0; 
+
     // Current Frame
     Frame mCurrentFrame;
     Frame mLastFrame;

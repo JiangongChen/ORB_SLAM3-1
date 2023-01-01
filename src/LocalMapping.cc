@@ -61,6 +61,10 @@ void LocalMapping::SetTracker(Tracking *pTracker)
     mpTracker=pTracker;
 }
 
+void LocalMapping::AddTracker(Tracking *pTracker){
+    allTrackers.push_back(pTracker); 
+}
+
 void LocalMapping::Run()
 {
     mbFinished = false;

@@ -438,10 +438,71 @@ void MapDrawer::DrawCurrentCamera(pangolin::OpenGlMatrix &Twc)
 }
 
 
+void MapDrawer::DrawCurrentCamera(int clientID, pangolin::OpenGlMatrix &Twc)
+{
+    const float &w = mCameraSize;
+    const float h = w*0.75;
+    const float z = w*0.6;
+
+    glPushMatrix();
+
+#ifdef HAVE_GLES
+        glMultMatrixf(Twc.m);
+#else
+        glMultMatrixd(Twc.m);
+#endif
+
+    glLineWidth(mCameraLineWidth);
+    if (clientID==0)
+        glColor3f(0.0f,1.0f,0.0f); // green for the first client
+    else if (clientID==1)
+        glColor3f(1.0f,0.0f,0.0f); // red for the second client
+    else if (clientID==2)
+        glColor3f(1.0f,1.0f,0.0f); // yellow for the third client
+    else if (clientID==3)
+        glColor3f(1.0f,0.647f,1.0f); // orange for the fourth client
+    else if (clientID==4)
+        glColor3f(0.0f,1.0f,1.0f); // cyan for the fifth client
+    else 
+        glColor3f(0.0,0.0f,0.0f); // black for the other clients
+    glBegin(GL_LINES);
+    glVertex3f(0,0,0);
+    glVertex3f(w,h,z);
+    glVertex3f(0,0,0);
+    glVertex3f(w,-h,z);
+    glVertex3f(0,0,0);
+    glVertex3f(-w,-h,z);
+    glVertex3f(0,0,0);
+    glVertex3f(-w,h,z);
+
+    glVertex3f(w,h,z);
+    glVertex3f(w,-h,z);
+
+    glVertex3f(-w,h,z);
+    glVertex3f(-w,-h,z);
+
+    glVertex3f(-w,h,z);
+    glVertex3f(w,h,z);
+
+    glVertex3f(-w,-h,z);
+    glVertex3f(w,-h,z);
+    glEnd();
+
+    glPopMatrix();
+}
+
+
 void MapDrawer::SetCurrentCameraPose(const Sophus::SE3f &Tcw)
 {
     unique_lock<mutex> lock(mMutexCamera);
     mCameraPose = Tcw.inverse();
+}
+
+void MapDrawer::SetCurrentCameraPose(int clientID, const Sophus::SE3f &Tcw){
+    unique_lock<mutex> lock(mMutexCamera);
+    while (mCameraPoseAllClients.size() <= clientID)
+        mCameraPoseAllClients.push_back(Tcw.inverse());
+    mCameraPoseAllClients[clientID] = Tcw.inverse(); 
 }
 
 void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M, pangolin::OpenGlMatrix &MOw)
@@ -450,6 +511,29 @@ void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M, pangolin
     {
         unique_lock<mutex> lock(mMutexCamera);
         Twc = mCameraPose.matrix();
+    }
+
+    for (int i = 0; i<4; i++) {
+        M.m[4*i] = Twc(0,i);
+        M.m[4*i+1] = Twc(1,i);
+        M.m[4*i+2] = Twc(2,i);
+        M.m[4*i+3] = Twc(3,i);
+    }
+
+    MOw.SetIdentity();
+    MOw.m[12] = Twc(0,3);
+    MOw.m[13] = Twc(1,3);
+    MOw.m[14] = Twc(2,3);
+}
+
+void MapDrawer::GetCurrentOpenGLCameraMatrix(int clientID, pangolin::OpenGlMatrix &M, pangolin::OpenGlMatrix &MOw)
+{
+    if(mCameraPoseAllClients.size() <= clientID) return; 
+
+    Eigen::Matrix4f Twc;
+    {
+        unique_lock<mutex> lock(mMutexCamera);
+        Twc = mCameraPoseAllClients[clientID].matrix();
     }
 
     for (int i = 0; i<4; i++) {

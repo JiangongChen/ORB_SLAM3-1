@@ -55,6 +55,7 @@ public:
     LoopClosing(Atlas* pAtlas, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale, const bool bActiveLC);
 
     void SetTracker(Tracking* pTracker);
+    void AddTracker(Tracking* pTracker);
 
     void SetLocalMapper(LocalMapping* pLocalMapper);
 
@@ -158,6 +159,7 @@ protected:
 
     Atlas* mpAtlas;
     Tracking* mpTracker;
+    vector<Tracking*> allTrackers; 
 
     KeyFrameDatabase* mpKeyFrameDB;
     ORBVocabulary* mpORBVocabulary;

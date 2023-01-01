@@ -130,6 +130,97 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
 #endif
 }
 
+Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Atlas *pAtlas, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, Settings* settings, const int id, const string &_nameSeq):
+    mState(LOST), mSensor(sensor), clientID(id), mTrackedFr(0), mbStep(false),
+    mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
+    mbReadyToInitializate(false), mpSystem(pSys), mpViewer(NULL), bStepByStep(false),
+    mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpAtlas(pAtlas), mnLastRelocFrameId(0), time_recently_lost(5.0),
+    mnInitialFrameId(0), mbCreatedMap(false), mnFirstFrameId(0), mpCamera2(nullptr), mpLastKeyFrame(static_cast<KeyFrame*>(NULL))
+{
+    cout << "add tracking thread for user " << clientID << endl; 
+    
+    // Load camera parameters from settings file
+    if(settings){
+        newParameterLoader(settings);
+    }
+    else{
+        cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
+
+        bool b_parse_cam = ParseCamParamFile(fSettings);
+        if(!b_parse_cam)
+        {
+            std::cout << "*Error with the camera parameters in the config file*" << std::endl;
+        }
+
+        // Load ORB parameters
+        bool b_parse_orb = ParseORBParamFile(fSettings);
+        if(!b_parse_orb)
+        {
+            std::cout << "*Error with the ORB parameters in the config file*" << std::endl;
+        }
+
+        bool b_parse_imu = true;
+        if(sensor==System::IMU_MONOCULAR || sensor==System::IMU_STEREO || sensor==System::IMU_RGBD)
+        {
+            b_parse_imu = ParseIMUParamFile(fSettings);
+            if(!b_parse_imu)
+            {
+                std::cout << "*Error with the IMU parameters in the config file*" << std::endl;
+            }
+
+            mnFramesToResetIMU = mMaxFrames;
+        }
+
+        if(!b_parse_cam || !b_parse_orb || !b_parse_imu)
+        {
+            std::cerr << "**ERROR in the config file, the format is not correct**" << std::endl;
+            try
+            {
+                throw -1;
+            }
+            catch(exception &e)
+            {
+
+            }
+        }
+    }
+
+    initID = 0; lastID = 0;
+    mbInitWith3KFs = false;
+    mnNumDataset = 0;
+
+    vector<GeometricCamera*> vpCams = mpAtlas->GetAllCameras();
+    std::cout << "There are " << vpCams.size() << " cameras in the atlas" << std::endl;
+    for(GeometricCamera* pCam : vpCams)
+    {
+        std::cout << "Camera " << pCam->GetId();
+        if(pCam->GetType() == GeometricCamera::CAM_PINHOLE)
+        {
+            std::cout << " is pinhole" << std::endl;
+        }
+        else if(pCam->GetType() == GeometricCamera::CAM_FISHEYE)
+        {
+            std::cout << " is fisheye" << std::endl;
+        }
+        else
+        {
+            std::cout << " is unknown" << std::endl;
+        }
+    }
+
+#ifdef REGISTER_TIMES
+    vdRectStereo_ms.clear();
+    vdResizeImage_ms.clear();
+    vdORBExtract_ms.clear();
+    vdStereoMatch_ms.clear();
+    vdIMUInteg_ms.clear();
+    vdPosePred_ms.clear();
+    vdLMTrack_ms.clear();
+    vdNewKF_ms.clear();
+    vdTrackTotal_ms.clear();
+#endif
+}
+
 #ifdef REGISTER_TIMES
 double calcAverage(vector<double> v_times)
 {
@@ -1928,7 +2019,8 @@ void Tracking::Track()
             MonocularInitialization();
         }
 
-        //mpFrameDrawer->Update(this);
+        if (clientID==0)
+            mpFrameDrawer->Update(this);
 
         if(mState!=OK) // If rightly initialized, mState=OK
         {
@@ -2218,10 +2310,14 @@ void Tracking::Track()
         vdLMTrack_ms.push_back(timeLMTrack);
 #endif
 
-        // Update drawer
-        mpFrameDrawer->Update(this);
-        if(mCurrentFrame.isSet())
-            mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.GetPose());
+        // Update drawer only for the first client
+        if (clientID==0)
+            mpFrameDrawer->Update(this);
+        if(mCurrentFrame.isSet()) {
+            if (clientID==0)
+                mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.GetPose());
+            mpMapDrawer->SetCurrentCameraPose(clientID,mCurrentFrame.GetPose());
+        }
 
         if(bOK || mState==RECENTLY_LOST)
         {
@@ -2236,8 +2332,11 @@ void Tracking::Track()
                 mbVelocity = false;
             }
 
-            if(mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
-                mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.GetPose());
+            if(mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) {
+                if (clientID==0)
+                    mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.GetPose());
+                mpMapDrawer->SetCurrentCameraPose(clientID,mCurrentFrame.GetPose());
+            }
 
             // Clean VO matches
             for(int i=0; i<mCurrentFrame.N; i++)
@@ -2459,7 +2558,9 @@ void Tracking::StereoInitialization()
 
         mpAtlas->GetCurrentMap()->mvpKeyFrameOrigins.push_back(pKFini);
 
-        mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.GetPose());
+        if (clientID==0)
+            mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.GetPose());
+        mpMapDrawer->SetCurrentCameraPose(clientID,mCurrentFrame.GetPose());
 
         mState=OK;
     }
@@ -2670,7 +2771,9 @@ void Tracking::CreateInitialMapMonocular()
 
     mpAtlas->SetReferenceMapPoints(mvpLocalMapPoints);
 
-    mpMapDrawer->SetCurrentCameraPose(pKFcur->GetPose());
+    if (clientID==0)
+        mpMapDrawer->SetCurrentCameraPose(pKFcur->GetPose());
+    mpMapDrawer->SetCurrentCameraPose(clientID,pKFcur->GetPose());
 
     mpAtlas->GetCurrentMap()->mvpKeyFrameOrigins.push_back(pKFini);
 

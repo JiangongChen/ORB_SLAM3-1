@@ -271,6 +271,7 @@ private:
     string mStrSaveAtlasToFile;
 
     string mStrVocabularyFilePath;
+    string mStrSettingsFilePath;
 
     Settings* settings_;
 };

@@ -81,6 +81,10 @@ void LoopClosing::SetTracker(Tracking *pTracker)
     mpTracker=pTracker;
 }
 
+void LoopClosing::AddTracker(Tracking *pTracker){
+    allTrackers.push_back(pTracker);
+}
+
 void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper)
 {
     mpLocalMapper=pLocalMapper;

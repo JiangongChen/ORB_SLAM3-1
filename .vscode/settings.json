@@ -3,6 +3,10 @@
         "iostream": "cpp",
         "ostream": "cpp",
         "vector": "cpp",
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "*.ipp": "cpp",
+        "thread": "cpp",
+        "__locale": "cpp",
+        "locale": "cpp"
     }
 }

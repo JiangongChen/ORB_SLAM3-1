@@ -106,6 +106,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     }
 
     mStrVocabularyFilePath = strVocFile;
+    mStrSettingsFilePath = strSettingsFile; 
 
     bool loadedAtlas = false;
 
@@ -249,8 +250,9 @@ void System::AddClient(int clientID){
     if (clientID == 0) return; 
 
     //Initialize the Tracking thread
-    /*Tracking* mpTrackerClient = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
-                             mpMap, mpKeyFrameDatabase, strSettingsFilePath, mSensor, clientID);
+    Tracking* mpTrackerClient = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
+                             mpAtlas, mpKeyFrameDatabase, mStrSettingsFilePath, mSensor, settings_, clientID);
+
     if(mpViewer!=nullptr) mpTrackerClient->SetViewer(mpViewer);
     mpTrackerClient->SetLocalMapper(mpLocalMapper);
     mpTrackerClient->SetLoopClosing(mpLoopCloser);
@@ -260,7 +262,7 @@ void System::AddClient(int clientID){
 
     // add client tracking and make sure it is in order
     mpTrackerAllClients.push_back(mpTrackerClient); 
-    mpTrackerAllClients[clientID] = mpTrackerClient;*/
+    mpTrackerAllClients[clientID] = mpTrackerClient;
 }
 
 Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<IMU::Point>& vImuMeas, string filename)

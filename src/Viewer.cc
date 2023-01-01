@@ -310,6 +310,12 @@ void Viewer::Run()
         d_cam.Activate(s_cam);
         glClearColor(1.0f,1.0f,1.0f,1.0f);
         mpMapDrawer->DrawCurrentCamera(Twc);
+        // draw camera of other clients
+        for(int i=1;i<mpMapDrawer->GetActiveClientsNum();i++){
+            pangolin::OpenGlMatrix TwcClient, OwClient; 
+            mpMapDrawer->GetCurrentOpenGLCameraMatrix(i, TwcClient, OwClient);
+            mpMapDrawer->DrawCurrentCamera(i, TwcClient);
+        }
         if(menuShowKeyFrames || menuShowGraph || menuShowInertialGraph || menuShowOptLba)
             mpMapDrawer->DrawKeyFrames(menuShowKeyFrames,menuShowGraph, menuShowInertialGraph, menuShowOptLba);
         if(menuShowPoints)
