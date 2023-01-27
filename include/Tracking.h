@@ -246,6 +246,7 @@ protected:
     // Reset IMU biases and compute frame velocity
     void ResetFrameIMU();
 
+    // set the flag when the scale of the map is changed
     bool mbMapUpdated;
 
     // Imu preintegration from last frame
@@ -316,7 +317,7 @@ protected:
 
     //New KeyFrame rules (according to fps)
     int mMinFrames;
-    int mMaxFrames;
+    int mMaxFrames; // set to FPS
 
     int mnFirstImuFrameId;
     int mnFramesToResetIMU;

@@ -18,6 +18,7 @@ void DrawTrajectory(const vector<Sophus::SE3f> & esti, const vector<Sophus::SE3f
 // for multiple users
 void DrawTrajectory(const vector<vector<Sophus::SE3f>> & esti, vector<vector<int>> gt_points);
 void SaveTrajectory(const string& filename, const vector<Sophus::SE3f>& trajectory, vector<double> timeStamps, vector<int> trajGTpts);
+void SaveIMU(const string & filename, const vector<ORB_SLAM3::IMU::Point>& imuMeas);
 
 
 int main(int argc, char **argv)
@@ -46,27 +47,23 @@ int main(int argc, char **argv)
 
     usleep(1000000); 
     while(server->listenFlag){
-        /*if (server->CheckAcoustic()){
+        if (server->CheckAcoustic()){
             vector<double> distances = server->CalAcoustic(); 
             if (distances.size() < server->max_client_num - 1) continue; 
 
             // optimize user 0's pose using acoustic ranging results
-            cv::Mat pose; 
+            Sophus::SE3f pose; 
             int poseId = server->clients[0]->getLatestTraj(pose); 
             // get Twc
-            cv::Mat R = pose.rowRange(0, 3).colRange(0, 3).t();
-            cv::Mat t = -R * pose.rowRange(0, 3).col(3);
-            Eigen::Vector3d est_trans (t.at<float>(0),t.at<float>(1),t.at<float>(2)); 
+            Eigen::Vector3d est_trans = pose.inverse().translation().cast<double>(); 
             cout << "user 0 " << est_trans.transpose() << endl; 
             vector<Eigen::Vector3d> other_trans; 
             for (int i=1;i<server->max_client_num;i++){
-                cv::Mat o_pose; 
+                Sophus::SE3f o_pose; 
                 int idx = server->clients[i]->getLatestTraj(o_pose); // the trajectory could be empty matrix, handling that
                 if (idx == -1) //handle invalid pose, e.g., has not been initialized
                     continue; 
-                R = o_pose.rowRange(0, 3).colRange(0, 3).t();
-                t = -R * o_pose.rowRange(0, 3).col(3);
-                Eigen::Vector3d pose_other(t.at<float>(0),t.at<float>(1),t.at<float>(2));
+                Eigen::Vector3d pose_other = o_pose.inverse().translation().cast<double>();
                 other_trans.push_back(pose_other); 
                 cout << "user " << i << " " << other_trans[i-1].transpose() << endl; 
                 server->hist_poses_1.push_back(est_trans);
@@ -78,21 +75,17 @@ int main(int argc, char **argv)
                 server->hist_distances.push_back(distances[i-1]); 
             }
             if (other_trans.size()!= server->max_client_num-1) continue; 
-            //ORB_SLAM2::Optimizer::PoseOptimizationDistanceWithScale(est_trans,server->est_scale,other_trans,distances); 
-            ORB_SLAM2::Optimizer::PoseOptimizationScale(server->hist_poses_1, server->hist_poses_2, server->hist_distances, server->est_scale); 
-            ORB_SLAM2::Optimizer::PoseOptimizationDistanceGivenScale(est_trans,server->est_scale,other_trans,distances); 
+            ORB_SLAM3::Optimizer::PoseOptimizationDistanceGivenScale(est_trans,server->est_scale,other_trans,distances); 
             // rewrite the trajectory, convert back to Tcw
-            R = pose.rowRange(0, 3).colRange(0, 3);
-            cv::Mat tmat = ORB_SLAM2::Converter::toCvMat(est_trans); 
-            tmat = -R * tmat;
-            Eigen::Vector3d est_trans_inv = ORB_SLAM2::Converter::toVector3d(tmat);
-            cv::Mat newmat = ORB_SLAM2::Converter::toCvSE3(ORB_SLAM2::Converter::toSE3Quat(pose).rotation().toRotationMatrix(),est_trans_inv); 
+            Eigen::Matrix3f R = pose.rotationMatrix();
+            Eigen::Vector3f est_trans_inv = -R * est_trans.cast<float>();
+            Sophus::SE3f newpose = Sophus::SE3f(R,est_trans_inv); 
             cout << "estimate pose: " << est_trans.transpose() << " estimate scale: " << server->est_scale << endl; // << " mat: " << newmat; 
-            server->clients[0]->rewriteTraj(poseId,newmat); 
-            server->hist_scales.push_back(server->est_scale); 
+            server->clients[0]->rewriteTraj(poseId,newpose); 
+            //server->hist_scales.push_back(server->est_scale); 
         }
         else
-            usleep(30000); */
+            usleep(30000); 
         usleep(1000000);
     }
 
@@ -126,6 +119,10 @@ int main(int argc, char **argv)
         std::ostringstream ss;
         ss << "allTrajectory" << i << ".txt";
         string trajFileName(ss.str()); 
+        std::ostringstream ss2;
+        ss2 << "imu" << i << ".csv";
+        string imuFileName(ss2.str());
+        SaveIMU(imuFileName,server->clients[i]->vImuMeas);
         // save the trajectory for each user
         SaveTrajectory(trajFileName,trajectory[i],vTimestamps[i],trajectory_gt_points[i]);
     }
@@ -292,3 +289,18 @@ void SaveTrajectory(const string & filename, const vector<Sophus::SE3f>&trajecto
     std::cout << endl << filename << " saved!" << endl;
 }
 
+void SaveIMU(const string & filename, const vector<ORB_SLAM3::IMU::Point>& imuMeas){
+    ofstream f;
+    f.open(filename.c_str());
+    //f << "#timeStamp gx gy gz ax ay az" << endl; 
+    f << fixed;
+    for (size_t i = 0; i < imuMeas.size(); i++)
+    {
+        ORB_SLAM3::IMU::Point imu = imuMeas[i]; 
+        f << setprecision(6) << imu.t << "," << imu.w[0] << "," << imu.w[1] << "," << imu.w[2]
+            << "," << imu.a[0] << "," << imu.a[1] << "," << imu.a[2] << endl;
+    }
+
+    f.close();
+    std::cout << endl << filename << " saved!" << endl;
+}

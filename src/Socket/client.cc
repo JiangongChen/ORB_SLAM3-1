@@ -136,8 +136,7 @@ void Client::receiveLoop() {
         }
         ORB_SLAM3::Frame* frame = new ORB_SLAM3::Frame(keypoints_, descriptors_, frameID, id_, stamp/1e9, extractor_, mpTracker->GetVocab(), mpTracker->GetCamera(), mDistCoef, mbf, mThDepth, nullptr, *mpTracker->GetIMUCalib());
         //lastFrame = frame; 
-        //server_->InsertFrame(frame); 
-        InsertFrame(frame); 
+        InsertFrame(frame); // comment this line to test acoustic only 
 
         //cout << "frame id " << frameID << "number of IMU:" << pkt->imus_.size() << endl;
         //cout << "image stamp:" << stamp << " first stamp of IMU:" << pkt->imus_[0].ts_ << " last stamp of IMU:"<<pkt->imus_[pkt->imus_.size()-1].ts_<<endl; 
@@ -150,7 +149,7 @@ void Client::receiveLoop() {
 void Client::acousticLoop(){
     char buffer[1024] = { 0 };
     std::ostringstream ss;
-    ss << id_ << "\n"; 
+    ss << id_ << "," << server_->max_client_num << "\n"; 
     const char* start_msg = ss.str().c_str(); 
     send(connfd_ac_, start_msg, strlen(start_msg), 0); 
     std::cout << "client " << id_ << " acoustic established" << endl; 
@@ -166,6 +165,7 @@ void Client::acousticLoop(){
         }
         cout << endl; 
         valread = read(connfd_ac_, buffer, 1024);
+        if (valread<=0) break;
     }
     std::cout << "client " << id_ << " acoustic stopped" << endl; 
 }
@@ -226,11 +226,12 @@ void Client::updateTraj(Sophus::SE3f tcw, double ttrack, double timeStamp, int g
 int Client::getLatestTraj(Sophus::SE3f &mat){
     unique_lock<mutex> lock(mMutexClient);
     int size = trajectory.size()-1; 
-    while(size>=0){
+    /*while(size>=0){
         mat = trajectory[size];
-        //if (!mat.empty()) break; 
+        if (!mat.empty()) break; // get last successfully tracked frame
         size--; 
-    }
+    }*/
+    mat = trajectory[size];
     return size;  
 }
 

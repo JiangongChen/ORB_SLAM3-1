@@ -98,7 +98,69 @@ public:
     void static InertialOptimization(Map *pMap, Eigen::Vector3d &bg, Eigen::Vector3d &ba, float priorG = 1e2, float priorA = 1e6);
     void static InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &scale);
 
+    // acoustic related optimization
+    void static PoseOptimizationDistanceGivenScale(Eigen::Vector3d &pose_est, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances); 
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+};
+
+
+// extension for optimize pose with acoustic ranging results
+
+class VertexTran : public g2o::BaseVertex<3, Eigen::Vector3d> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        virtual void setToOriginImpl() override {
+        _estimate << 0, 0, 0;
+    }
+
+    virtual void oplusImpl(const double* update) override {
+        _estimate += Eigen::Vector3d(update);
+    }
+
+    virtual bool read(istream& in) {}
+
+    virtual bool write(ostream& out) const {}
+};
+
+
+// unit edge with pose, considering distance
+class EdgeDistS : public g2o::BaseUnaryEdge<1, double, VertexTran> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
+    EdgeDistS(Eigen::Vector3d pos, double scale): BaseUnaryEdge(), _pos(pos), _scale(scale)
+    {}
+
+    virtual void computeError() override {
+        const VertexTran* v = static_cast<VertexTran*>(_vertices[0]);
+        Eigen::Vector3d T = v->estimate();
+        //cout << "T " << T << endl;
+        double s = _scale; 
+        _error(0, 0) = _measurement - s*sqrt((T-_pos).dot(T-_pos));
+        
+        //cout << "measure " << _measurement << endl;
+        //cout << "calculate error " << _error << endl; 
+    }
+    
+    /*virtual void linearizeOplus() override {
+        const VertexTran* v = static_cast<VertexTran*>(_vertices[0]);
+        Vector3d T = v->estimate();
+        double s = _scale(); 
+        _jacobianOplusXi[0] = (-2 * s * s * (T(0, 0)-_pos(0,0)));
+        _jacobianOplusXi[1] = (-2 * s * s * (T(1, 0)-_pos(1,0)));
+        _jacobianOplusXi[2] = (-2 * s * s * (T(2, 0)-_pos(2,0)));
+        _jacobianOplusXj[0] = -2 * s * (T-_pos).dot(T-_pos);
+    }*/
+    
+    virtual bool read(std::istream& in) override { return true; }
+
+    virtual bool write(std::ostream& out) const override { return true; }
+
+private:
+  Eigen::Vector3d _pos; // position of the other user
+  double _scale; // scale
 };
 
 } //namespace ORB_SLAM3

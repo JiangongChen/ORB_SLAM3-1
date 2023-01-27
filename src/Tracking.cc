@@ -45,7 +45,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     mState(NO_IMAGES_YET), mSensor(sensor), mTrackedFr(0), mbStep(false),
     mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
     mbReadyToInitializate(false), mpSystem(pSys), mpViewer(NULL), bStepByStep(false),
-    mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpAtlas(pAtlas), mnLastRelocFrameId(0), time_recently_lost(5.0),
+    mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpAtlas(pAtlas), mnLastRelocFrameId(0), time_recently_lost(5000.0),
     mnInitialFrameId(0), mbCreatedMap(false), mnFirstFrameId(0), mpCamera2(nullptr), mpLastKeyFrame(static_cast<KeyFrame*>(NULL))
 {
     // Load camera parameters from settings file
@@ -132,13 +132,13 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
 
 Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Atlas *pAtlas, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, Settings* settings, const int id, const string &_nameSeq):
     mState(LOST), mSensor(sensor), clientID(id), mTrackedFr(0), mbStep(false),
-    mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
+    mbOnlyTracking(true), mbMapUpdated(false), mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
     mbReadyToInitializate(false), mpSystem(pSys), mpViewer(NULL), bStepByStep(false),
-    mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpAtlas(pAtlas), mnLastRelocFrameId(0), time_recently_lost(5.0),
+    mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpAtlas(pAtlas), mnLastRelocFrameId(0), time_recently_lost(5000.0),
     mnInitialFrameId(0), mbCreatedMap(false), mnFirstFrameId(0), mpCamera2(nullptr), mpLastKeyFrame(static_cast<KeyFrame*>(NULL))
 {
     cout << "add tracking thread for user " << clientID << endl; 
-    
+
     // Load camera parameters from settings file
     if(settings){
         newParameterLoader(settings);
@@ -188,7 +188,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     initID = 0; lastID = 0;
     mbInitWith3KFs = false;
     mnNumDataset = 0;
-
+    
     vector<GeometricCamera*> vpCams = mpAtlas->GetAllCameras();
     std::cout << "There are " << vpCams.size() << " cameras in the atlas" << std::endl;
     for(GeometricCamera* pCam : vpCams)
@@ -675,6 +675,7 @@ void Tracking::newParameterLoader(Settings *settings) {
     mMinFrames = 0;
     mMaxFrames = settings->fps();
     mbRGB = settings->rgb();
+    mnFramesToResetIMU = mMaxFrames;
 
     //ORB parameters
     int nFeatures = settings->nFeatures();
@@ -1713,7 +1714,15 @@ Sophus::SE3f Tracking::GrabImageEdge(Frame* frame){
 
     if (mState==NO_IMAGES_YET)
         t0=frame->mTimeStamp;
-
+    // for frames from other clients, set lost time to the first frame
+    if (frame->mnId%100000==0&&(mState==LOST||mState==RECENTLY_LOST)){
+        mLastFrame.mTimeStamp=frame->mTimeStamp-1.0/mMaxFrames;
+        t0=frame->mTimeStamp;
+        mTimeStampLost=frame->mTimeStamp;
+    }
+    //cout<<"frame id:"<<frame->mnId<<"last frame timestamp"<<mLastFrame.mTimeStamp<<endl; 
+    //cout<<"frame id:"<<frame->mnId<<endl;
+    
     mCurrentFrame.mNameFile = "";
     mCurrentFrame.mnDataset = mnNumDataset;
 
@@ -2057,13 +2066,14 @@ void Tracking::Track()
 
                 if((!mbVelocity && !pCurrentMap->isImuInitialized()) || mCurrentFrame.mnId<mnLastRelocFrameId+2)
                 {
+                    // worked when imu not initialized and no velocity calculated from last frame, or few frames after relocalization
                     Verbose::PrintMess("TRACK: Track with respect to the reference KF ", Verbose::VERBOSITY_DEBUG);
-                    bOK = TrackReferenceKeyFrame();
+                    bOK = TrackReferenceKeyFrame(); // visual only, track relative pose wrt last reference keyframe
                 }
                 else
                 {
                     Verbose::PrintMess("TRACK: Track with motion model", Verbose::VERBOSITY_DEBUG);
-                    bOK = TrackWithMotionModel();
+                    bOK = TrackWithMotionModel(); // estimate the state (pos,rot,vel) using IMU readings
                     if(!bOK)
                         bOK = TrackReferenceKeyFrame();
                 }
@@ -2096,7 +2106,8 @@ void Tracking::Track()
                     Verbose::PrintMess("Lost for a short time", Verbose::VERBOSITY_NORMAL);
 
                     bOK = true;
-                    if((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD))
+                    // TODO: here disabled the IMU-only tracking for other users except user 0
+                    if((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)&&clientID==0)
                     {
                         if(pCurrentMap->isImuInitialized())
                             PredictStateIMU();
@@ -2116,7 +2127,7 @@ void Tracking::Track()
                         bOK = Relocalization();
                         //std::cout << "mCurrentFrame.mTimeStamp:" << to_string(mCurrentFrame.mTimeStamp) << std::endl;
                         //std::cout << "mTimeStampLost:" << to_string(mTimeStampLost) << std::endl;
-                        if(mCurrentFrame.mTimeStamp-mTimeStampLost>3.0f && !bOK)
+                        if(mCurrentFrame.mTimeStamp-mTimeStampLost>time_recently_lost && !bOK)
                         {
                             mState = LOST;
                             Verbose::PrintMess("Track Lost...", Verbose::VERBOSITY_NORMAL);
@@ -2259,7 +2270,7 @@ void Tracking::Track()
             if (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
             {
                 Verbose::PrintMess("Track lost for less than one second...", Verbose::VERBOSITY_NORMAL);
-                if(!pCurrentMap->isImuInitialized() || !pCurrentMap->GetIniertialBA2())
+                if(!pCurrentMap->isImuInitialized() || !pCurrentMap->GetIniertialBA2()) // haven't finished VIBA2
                 {
                     cout << "IMU is not or recently initialized. Reseting active map..." << endl;
                     mpSystem->ResetActiveMap();
@@ -2278,7 +2289,8 @@ void Tracking::Track()
 
         // Save frame if recent relocalization, since they are used for IMU reset (as we are making copy, it shluld be once mCurrFrame is completely modified)
         if((mCurrentFrame.mnId<(mnLastRelocFrameId+mnFramesToResetIMU)) && (mCurrentFrame.mnId > mnFramesToResetIMU) &&
-           (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && pCurrentMap->isImuInitialized())
+           (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD) && pCurrentMap->isImuInitialized()
+           && clientID==0 )// skip for other users except 0
         {
             // TODO check this situation
             Verbose::PrintMess("Saving pointer to frame. imu needs reset...", Verbose::VERBOSITY_NORMAL);
@@ -2390,6 +2402,9 @@ void Tracking::Track()
         // Reset if the camera get lost soon after initialization
         if(mState==LOST)
         {
+            // skip if it is not the main user
+            if (clientID!=0) return; 
+
             if(pCurrentMap->KeyFramesInMap()<=10)
             {
                 mpSystem->ResetActiveMap();
@@ -2408,9 +2423,10 @@ void Tracking::Track()
             return;
         }
 
+        // TODO: skip when the state is LOST, may lead to problems
         if(!mCurrentFrame.mpReferenceKF)
             mCurrentFrame.mpReferenceKF = mpReferenceKF;
-
+        
         mLastFrame = Frame(mCurrentFrame);
     }
 
@@ -2979,23 +2995,23 @@ bool Tracking::TrackWithMotionModel()
 {
     ORBmatcher matcher(0.9,true);
 
-    // Update last frame pose according to its reference keyframe
-    // Create "visual odometry" points if in Localization Mode
+    // Update last frame pose according to its reference keyframe, i.e., calculate T_wc using relative pose from last frame to key frame and pose of keyframe
+    // Create "visual odometry" points if in Localization Mode, not work in visual monocular case
     UpdateLastFrame();
 
     if (mpAtlas->isImuInitialized() && (mCurrentFrame.mnId>mnLastRelocFrameId+mnFramesToResetIMU))
     {
-        // Predict state with IMU if it is initialized and it doesnt need reset
-        PredictStateIMU();
+        // Predict state with IMU if it is initialized and it doesnt need reset, i.e., an amount of frames far from last relocation
+        PredictStateIMU(); // state includes rotation, position and velocity
         return true;
     }
     else
     {
-        mCurrentFrame.SetPose(mVelocity * mLastFrame.GetPose());
+        mCurrentFrame.SetPose(mVelocity * mLastFrame.GetPose()); // predict current frame using previously estimated velocity
     }
 
 
-
+    // further optimization for pose estimated by velocity, will not reach here if estimated by IMU sensors
 
     fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
 
@@ -3091,7 +3107,7 @@ bool Tracking::TrackLocalMap()
         }
 
     int inliers;
-    if (!mpAtlas->isImuInitialized())
+    if (!mpAtlas->isImuInitialized()||clientID!=0)
         Optimizer::PoseOptimization(&mCurrentFrame);
     else
     {

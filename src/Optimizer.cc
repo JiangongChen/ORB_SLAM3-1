@@ -5587,4 +5587,46 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
     pMap->IncreaseChangeIndex();
 }
 
+void Optimizer::PoseOptimizationDistanceGivenScale(Eigen::Vector3d &pose_est, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances){
+    typedef g2o::BlockSolver<g2o::BlockSolverTraits<Eigen::Dynamic, Eigen::Dynamic>> BlockSolverType; 
+    typedef g2o::LinearSolverDense<BlockSolverType::PoseMatrixType> LinearSolverType; 
+
+    LinearSolverType * linearSolver;
+
+    linearSolver = new LinearSolverType();
+
+    BlockSolverType * solver_ptr = new BlockSolverType(linearSolver);
+
+    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    g2o::SparseOptimizer optimizer;  
+    optimizer.setAlgorithm(solver);  
+    optimizer.setVerbose(false);       
+
+    VertexTran *v = new VertexTran();
+    v->setEstimate(pose_est);
+    v->setId(0);
+    optimizer.addVertex(v);
+
+    for (int i = 0; i < pose_others.size(); i++) {
+        EdgeDistS *edge = new EdgeDistS(pose_others[i],scale);
+        edge->setId(i);
+        edge->setVertex(0, v);              
+        double dist = distances[i]; 
+        edge->setMeasurement(dist);      
+        edge->setInformation(Eigen::Matrix<double, 1, 1>::Identity()); 
+        optimizer.addEdge(edge);
+    }
+
+    
+    cout << "start optimization" << endl;
+    chrono::steady_clock::time_point t1 = chrono::steady_clock::now();
+    optimizer.initializeOptimization();
+    optimizer.optimize(10);
+    chrono::steady_clock::time_point t2 = chrono::steady_clock::now();
+    chrono::duration<double> time_used = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
+    cout << "solve time cost = " << time_used.count() << " seconds. " << endl;
+
+    cout << "estimated pose: " << v->estimate().transpose() << endl;  
+    pose_est = v->estimate(); 
+}
 } //namespace ORB_SLAM

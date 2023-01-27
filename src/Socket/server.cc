@@ -37,7 +37,7 @@ Server::Server():
 }
 
 Server::Server(const string &strSettingsFile, ORB_SLAM3::System *sys):
-    client_num(0), client_num_ac(0), max_client_num(5), opt(1), listenFlag(true), listenFlagAcoustic(true), est_scale(1.0){
+    client_num(0), client_num_ac(0), max_client_num(2), opt(1), listenFlag(true), listenFlagAcoustic(true), est_scale(1.0){
     // initialize the server
     //hello = "Hello from server";
     settingFile = strSettingsFile; 
@@ -109,7 +109,7 @@ void Server::StartListening(){
     listen_thread_ = std::thread(&Server::Listening, this);
 
     // start listening for acoustic
-    //listen_thread_acoustic_ = std::thread(&Server::ListeningAcoustic, this); 
+    listen_thread_acoustic_ = std::thread(&Server::ListeningAcoustic, this); 
 }
 
 void Server::Listening(){
@@ -149,11 +149,6 @@ void Server::ListeningAcoustic(){
         new_socket_ac
             = accept(server_fd_ac, (struct sockaddr*)&address_ac,
                     (socklen_t*)&addrlen_ac);
-        if(client_num_ac>=max_client_num) {
-            // closing the connected socket
-            close(new_socket_ac);
-            break;
-        }
         // attach the acoustic socket to existing client
         while (client_num_ac>=(int)clients.size()) usleep(3000); 
         Client* client = clients[client_num_ac];
@@ -233,18 +228,17 @@ bool Server::CheckAcoustic(){
     }
     return true; 
 }
-/*
+
 vector<double> Server::CalAcoustic(){
     vector<double> distances; 
     for (int i=0;i<max_client_num;i++){
-        cv::Mat o_pose; 
+        Sophus::SE3f o_pose; 
         int idx = clients[i]->getLatestTraj(o_pose); // the trajectory could be empty matrix, handling that
-        if (idx == -1) //handle invalid pose, e.g., has not been initialized
-            continue;
+        //if (idx == -1) //handle invalid pose, e.g., has not been initialized
+        //    continue;
         double ts1 = clients[i]->getLatestTS(); 
-        cv::Mat R = o_pose.rowRange(0, 3).colRange(0, 3).t();
-        cv::Mat t = -R * o_pose.rowRange(0, 3).col(3);
-        Eigen::Vector3d pose1(t.at<float>(0),t.at<float>(1),t.at<float>(2)); 
+        if (i==0) cout << "client" << i << " timestamp:" << ts1 << endl; 
+        Eigen::Vector3d pose1 = o_pose.inverse().translation().cast<double>(); // get the position in the world coordinates, i.e., t in Twc
         for (int j=i+1;j<max_client_num;j++){
             int n1 = clients[i]->intervals[j].front();
             clients[i]->intervals[j].pop();
@@ -260,9 +254,7 @@ vector<double> Server::CalAcoustic(){
                     if (idx == -1) //handle invalid pose, e.g., has not been initialized
                         continue;
                     double ts2 = clients[j]->getLatestTS(); 
-                    R = o_pose.rowRange(0, 3).colRange(0, 3).t();
-                    t = -R * o_pose.rowRange(0, 3).col(3);
-                    Eigen::Vector3d pose2(t.at<float>(0),t.at<float>(1),t.at<float>(2)); 
+                    Eigen::Vector3d pose2 = o_pose.inverse().translation().cast<double>(); 
                     hist_poses_1.push_back(pose1);
                     hist_poses_2.push_back(pose2);
                     hist_users_1.push_back(i);
@@ -276,7 +268,7 @@ vector<double> Server::CalAcoustic(){
     }
     return distances; 
 }
-*/
+
 ORB_SLAM3::Frame* Server::GetNewFrame()
 {
     unique_lock<mutex> lock(mMutexServer);

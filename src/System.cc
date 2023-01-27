@@ -36,7 +36,7 @@
 namespace ORB_SLAM3
 {
 
-Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
+Verbose::eLevel Verbose::th = Verbose::VERBOSITY_DEBUG;
 
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
                const bool bUseViewer, const int initFr, const string &strSequence):
@@ -512,6 +512,11 @@ Sophus::SE3f System::TrackEdge(Frame* frame){
 
     int client_id = frame->clientId; 
     Tracking* mpTrackerClient = GetTracker(client_id);
+
+    // if clients already relocalized (except client0), directly return that position
+    if (client_id>0&&mpTrackerClient->mState==Tracking::eTrackingState::OK){
+        return mpTrackerClient->mLastFrame.GetPose();
+    }
 
     // Check mode change
     {
