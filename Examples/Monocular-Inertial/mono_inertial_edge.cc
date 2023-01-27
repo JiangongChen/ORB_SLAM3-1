@@ -19,6 +19,7 @@ void DrawTrajectory(const vector<Sophus::SE3f> & esti, const vector<Sophus::SE3f
 void DrawTrajectory(const vector<vector<Sophus::SE3f>> & esti, vector<vector<int>> gt_points);
 void SaveTrajectory(const string& filename, const vector<Sophus::SE3f>& trajectory, vector<double> timeStamps, vector<int> trajGTpts);
 void SaveIMU(const string & filename, const vector<ORB_SLAM3::IMU::Point>& imuMeas);
+void SaveDistanceMeasurement(const string & filename, const vector<double> ts1, const vector<int> users1, const vector<Eigen::Vector3d> pos1, const vector<double> ts2, const vector<int> users2, const vector<Eigen::Vector3d> pos2, vector<double> distances);
 
 
 int main(int argc, char **argv)
@@ -127,6 +128,11 @@ int main(int argc, char **argv)
         SaveTrajectory(trajFileName,trajectory[i],vTimestamps[i],trajectory_gt_points[i]);
     }
 
+    // save the measured distances
+    std::ostringstream ss;
+    ss << "allDistances.txt";
+    string trajFileName(ss.str()); 
+    SaveDistanceMeasurement(trajFileName, server->hist_TS_1, server->hist_users_1, server->hist_poses_1, server->hist_TS_2, server->hist_users_2, server->hist_poses_2, server->hist_distances); 
 
     //draw the trajectory for all users
     std::cout << "start drawing the trajectory." << endl; 
@@ -303,4 +309,20 @@ void SaveIMU(const string & filename, const vector<ORB_SLAM3::IMU::Point>& imuMe
 
     f.close();
     std::cout << endl << filename << " saved!" << endl;
+}
+
+void SaveDistanceMeasurement(const string & filename, const vector<double> ts1, const vector<int> users1, const vector<Eigen::Vector3d> pos1, const vector<double> ts2, const vector<int> users2, const vector<Eigen::Vector3d> pos2, vector<double> distances){
+    ofstream f;
+    f.open(filename.c_str());
+    f << "# timeStamp1 user1 tx1 ty1 tz1 timeStamp2 user2 tx2 ty2 tz2 distance" << endl; 
+    f << fixed;
+    for (size_t i = 0; i < distances.size(); i++)
+    {
+        f << setprecision(3) << ts1[i] << " " << setprecision(0) << users1[i] << setprecision(5) << " " << pos1[i][0] << " " << pos1[i][1] << " " << pos1[i][2] << " " 
+            << setprecision(3) << ts2[i] << " " << setprecision(0) << users2[i] << setprecision(5) << " " << pos2[i][0] << " " << pos2[i][1] << " " << pos2[i][2]
+            << " " << distances[i] << endl;
+    }
+
+    f.close();
+    cout << endl << filename << " saved!" << endl;
 }

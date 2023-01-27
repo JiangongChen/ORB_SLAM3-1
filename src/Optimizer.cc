@@ -5626,7 +5626,7 @@ void Optimizer::PoseOptimizationDistanceGivenScale(Eigen::Vector3d &pose_est, do
     chrono::duration<double> time_used = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
     cout << "solve time cost = " << time_used.count() << " seconds. " << endl;
 
-    cout << "estimated pose: " << v->estimate().transpose() << endl;  
+    //cout << "estimated pose: " << v->estimate().transpose() << endl;  
     pose_est = v->estimate(); 
 }
 } //namespace ORB_SLAM
