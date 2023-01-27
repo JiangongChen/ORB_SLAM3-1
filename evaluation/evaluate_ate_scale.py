@@ -87,6 +87,12 @@ def align(model,data):
     transGT = data.mean(1) - s*rot * model.mean(1)
     trans = data.mean(1) - rot * model.mean(1)
 
+    print "scale: %f " % s  
+    print "rot: "
+    print rot
+    print "tran: "
+    print transGT
+    
     model_alignedGT = s*rot * model + transGT
     model_aligned = rot * model + trans
 
@@ -141,6 +147,7 @@ if __name__=="__main__":
     parser.add_argument('--scale', help='scaling factor for the second trajectory (default: 1.0)',default=1.0)
     parser.add_argument('--max_difference', help='maximally allowed time difference for matching entries (default: 10000000 ns)',default=20000000)
     parser.add_argument('--save', help='save aligned second trajectory to disk (format: stamp2 x2 y2 z2)')
+    parser.add_argument('--save_scale', help='save scaled aligned second trajectory to disk (format: stamp2 x2 y2 z2)')
     parser.add_argument('--save_associations', help='save associated first and aligned second trajectory to disk (format: stamp1 x1 y1 z1 stamp2 x2 y2 z2)')
     parser.add_argument('--plot', help='plot the first and the aligned second trajectory to an image (format: png)')
     parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute translational error in meters after alignment will be printed)', action='store_true')
@@ -161,7 +168,7 @@ if __name__=="__main__":
     second_xyz_full = numpy.matrix([[float(value)*float(args.scale) for value in sorted_second_list[i][1][0:3]] for i in range(len(sorted_second_list))]).transpose() # sorted_second_list.keys()]).transpose()
     rot,transGT,trans_errorGT,trans,trans_error, scale = align(second_xyz,first_xyz)
     
-    second_xyz_aligned = scale * rot * second_xyz + trans
+    second_xyz_aligned = scale * rot * second_xyz + transGT
     second_xyz_notscaled = rot * second_xyz + trans
     second_xyz_notscaled_full = rot * second_xyz_full + trans
     first_stamps = first_list.keys()
@@ -171,7 +178,7 @@ if __name__=="__main__":
     second_stamps = second_list.keys()
     second_stamps.sort()
     second_xyz_full = numpy.matrix([[float(value)*float(args.scale) for value in second_list[b][0:3]] for b in second_stamps]).transpose()
-    second_xyz_full_aligned = scale * rot * second_xyz_full + trans
+    second_xyz_full_aligned = scale * rot * second_xyz_full + transGT
     
     if args.verbose:
         print "compared_pose_pairs %d pairs"%(len(trans_error))
@@ -202,7 +209,12 @@ if __name__=="__main__":
         file = open(args.save,"w")
         file.write("\n".join(["%f "%stamp+" ".join(["%f"%d for d in line]) for stamp,line in zip(second_stamps,second_xyz_notscaled_full.transpose().A)]))
         file.close()
-
+    
+    if args.save_scale:
+        file = open(args.save_scale,"w")
+        file.write("\n".join(["%f "%stamp+" ".join(["%f"%d for d in line]) for stamp,line in zip(second_stamps,second_xyz_aligned.transpose().A)]))
+        file.close()
+        
     if args.plot:
         import matplotlib
         matplotlib.use('Agg')
