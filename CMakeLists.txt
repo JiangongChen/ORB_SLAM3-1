@@ -409,3 +409,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples)
 add_executable(draw_traj
         Examples/draw_traj.cc)
 target_link_libraries(draw_traj ${PROJECT_NAME})
+
+add_executable(opt_analy
+        Examples/imu_acoustic_opt_analy.cc)
+target_link_libraries(opt_analy ${PROJECT_NAME})

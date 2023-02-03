@@ -1950,7 +1950,7 @@ void Tracking::Track()
         {
             // cout << mCurrentFrame.mTimeStamp << ", " << mLastFrame.mTimeStamp << endl;
             // cout << "id last: " << mLastFrame.mnId << "    id curr: " << mCurrentFrame.mnId << endl;
-            if(mpAtlas->isInertial())
+            if(mpAtlas->isInertial()&&clientID==0) // only for client 0
             {
 
                 if(mpAtlas->isImuInitialized())
