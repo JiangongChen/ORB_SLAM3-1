@@ -66,6 +66,7 @@ tran:
     double init_time = 102475;
     double end_time = 102596;
     Eigen::Vector3d pos(-0.0161928, -0.1929543, 0.0376005);
+    Eigen::Vector3d prev_ac_pose = pos; 
     Eigen::Quaterniond init_q(0.6127005, -0.7877569, -0.0623650, 0.0121559); // w,x,y,z
     Eigen::Matrix3d rot = init_q.toRotationMatrix();
     Eigen::Vector3d velocity; 
@@ -93,6 +94,9 @@ tran:
     mImuCalib = new ORB_SLAM3::IMU::Calib(Tbc,Ng*sf,Na*sf,Ngw/sf,Naw/sf);
     //cout<<mImuCalib->mTcb.translation() << endl; 
     ORB_SLAM3::IMU::Bias mBias = ORB_SLAM3::IMU::Bias(); 
+
+    // assign calculated scale using RANSAC
+    vector<double> ransac_scale { 1.2413229473591059, 1.1314382806649064, 1.1309707195544323, 1.1345153842814706, 1.137540360947597, 1.137013995411847, 1.1386840089531796, 1.1345153842814706, 1.1360782908963805, 1.1371614084081503, 1.1353872216950096, 1.1334964433951018, 1.1368516933598143, 1.136851693359814, 1.1339495909761326, 1.1391032675625068, 1.1384381720298644, 1.1387902457607488, 1.1391032675625066, 1.132651817441362, 1.1330533142302541, 1.1390742746833842, 1.1365262521003545, 1.1397132572314361, 1.1376123849741195};
 
     for (size_t id_traj=1;id_traj<ts_traj.size();id_traj++){
         vector<ORB_SLAM3::IMU::Point> mvImuFromLastFrame;
@@ -142,7 +146,7 @@ tran:
             velocity = Eigen::Vector3d(0,0,0); 
         }
         else {
-            pos = twb2.cast<double>();
+            //pos = twb2.cast<double>();
             rot = Rwb2.cast<double>();
             //rot = slam_traj[id_traj].rotation().toRotationMatrix();
             velocity = Vwb2.cast<double>();
@@ -153,10 +157,13 @@ tran:
         // reset imu using acoustic 
         if (ac_cnt < dist_ts.size() && ts_imu[i] > dist_ts[ac_cnt*4]){
             Eigen::Vector3d est;
-            ORB_SLAM3::Optimizer::PoseOptimizationDistanceGivenScale(est,1.116997,other_trans,round_distances[ac_cnt]); 
+            //ORB_SLAM3::Optimizer::PoseOptimizationDistanceGivenScale(est,ransac_scale[ac_cnt],other_trans,round_distances[ac_cnt]); 
+            //ORB_SLAM3::Optimizer::PoseOptimizationDistanceGivenScale(est,1.116997,other_trans,round_distances[ac_cnt]); 
+            ORB_SLAM3::Optimizer::PoseOptimizationDistanceRegu(est,prev_ac_pose,1.116997,other_trans,round_distances[ac_cnt]); 
             velocity = Eigen::Vector3d(0,0,0); 
             pos = est;
             //rot = slam_traj[id_traj].rotation().toRotationMatrix();
+            prev_ac_pose = est; 
             ac_cnt++;
             //cout << "time: "<<dist_ts[ac_cnt*4] << "estimated pose: "<<pos.transpose() << "reset velocity" << velocity.transpose() << endl; 
         }

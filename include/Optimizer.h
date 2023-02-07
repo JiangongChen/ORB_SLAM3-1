@@ -100,6 +100,7 @@ public:
 
     // acoustic related optimization
     void static PoseOptimizationDistanceGivenScale(Eigen::Vector3d &pose_est, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances); 
+    void static PoseOptimizationDistanceRegu(Eigen::Vector3d &pose_est, Eigen::Vector3d pose_last, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances); 
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
