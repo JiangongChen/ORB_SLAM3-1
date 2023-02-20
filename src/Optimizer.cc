@@ -5681,4 +5681,164 @@ void Optimizer::PoseOptimizationDistanceRegu(Eigen::Vector3d &pose_est, Eigen::V
     pose_est = v->estimate(); 
 }
 
+void Optimizer::IMUAcousticOptimization(vector<Eigen::Vector3d> &pos_est, vector<Eigen::Vector3d> &vel_est, vector<Eigen::Vector3d> delta_pos, vector<Eigen::Vector3d> delta_vel, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances){
+    typedef g2o::BlockSolver<g2o::BlockSolverTraits<Eigen::Dynamic, Eigen::Dynamic>> BlockSolverType; 
+    typedef g2o::LinearSolverDense<BlockSolverType::PoseMatrixType> LinearSolverType; 
+
+    LinearSolverType * linearSolver;
+
+    linearSolver = new LinearSolverType();
+
+    BlockSolverType * solver_ptr = new BlockSolverType(linearSolver);
+
+    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    g2o::SparseOptimizer optimizer;  
+    optimizer.setAlgorithm(solver);  
+    optimizer.setVerbose(false);       
+
+    // add vertexes for velocity
+    vector<VertexTran*> vertex_vel;
+    for(size_t i=0;i<vel_est.size();i++){
+        VertexTran *v = new VertexTran();
+        v->setEstimate(vel_est[i]);
+        v->setId(i);
+        optimizer.addVertex(v);
+        vertex_vel.push_back(v);
+    }
+
+    // add vertexes for position
+    vector<VertexTran*> vertex_pos;
+    for(size_t i=0;i<pos_est.size();i++){
+        VertexTran *v = new VertexTran();
+        v->setEstimate(pos_est[i]);
+        v->setId(vel_est.size()+i);
+        optimizer.addVertex(v);
+        vertex_pos.push_back(v);
+    }
+
+    // add edges for relative velocity
+    /*for(size_t i=1;i<vel_est.size();i++){
+        Edge3d *edge = new Edge3d();
+        edge->setId(i-1);
+        edge->setVertex(0, vertex_vel[i]);   // time t           
+        edge->setVertex(1, vertex_vel[i-1]);   // time t-1
+        edge->setMeasurement(delta_vel[i]);      
+        edge->setInformation(Eigen::Matrix3d::Identity()); 
+        optimizer.addEdge(edge);
+    }*/
+
+    // add edges for relative position
+    for(size_t i=1;i<pos_est.size();i++){
+        Edge3d *edge = new Edge3d();
+        edge->setId(i-1);
+        edge->setVertex(0, vertex_pos[i]);   // time t           
+        edge->setVertex(1, vertex_pos[i-1]);   // time t-1
+        edge->setMeasurement(delta_pos[i]);      
+        edge->setInformation(Eigen::Matrix3d::Identity()); 
+        optimizer.addEdge(edge);
+    }
+
+    // add edges for acoustic 
+    for (int i = 0; i < pose_others.size(); i++) {
+        EdgeDistS *edge = new EdgeDistS(pose_others[i],scale);
+        edge->setId(i+pos_est.size()-1);
+        edge->setVertex(0, vertex_pos[pos_est.size()-1]);              
+        double dist = distances[i]; 
+        edge->setMeasurement(dist);      
+        edge->setInformation(Eigen::Matrix<double, 1, 1>::Identity()); 
+        optimizer.addEdge(edge);
+    }
+
+    // extra edge for regulation
+    /*EdgeDistS *edge_extra = new EdgeDistS(pose_last, scale);
+    edge_extra->setId(pose_others.size());
+    edge_extra->setVertex(0, v);    
+    edge_extra->setMeasurement(0);
+    edge_extra->setInformation(Eigen::Matrix<double, 1, 1>::Identity());
+    optimizer.addEdge(edge_extra);*/
+
+    cout << "start optimization" << endl;
+    chrono::steady_clock::time_point t1 = chrono::steady_clock::now();
+    optimizer.initializeOptimization();
+    optimizer.optimize(10);
+    chrono::steady_clock::time_point t2 = chrono::steady_clock::now();
+    chrono::duration<double> time_used = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
+    cout << "solve time cost = " << time_used.count() << " seconds. " << endl;
+
+    //cout << "estimated pose: " << v->estimate().transpose() << endl;  
+    // update estimation
+    /*for(size_t i=0;i<vel_est.size();i++){
+        vel_est[i] = vertex_vel[i]->estimate(); 
+    }*/
+    for(size_t i=0;i<pos_est.size();i++){
+        pos_est[i] = vertex_pos[i]->estimate(); 
+    }
+}
+
+void Optimizer::IMUAcousticKeyOptimization(vector<Eigen::Vector3d> &pos_est, vector<Eigen::Vector3d> delta_p_est, vector<vector<double>> distances, double scale, vector<Eigen::Vector3d> pose_others){
+    typedef g2o::BlockSolver<g2o::BlockSolverTraits<Eigen::Dynamic, Eigen::Dynamic>> BlockSolverType; 
+    typedef g2o::LinearSolverDense<BlockSolverType::PoseMatrixType> LinearSolverType; 
+
+    LinearSolverType * linearSolver;
+
+    linearSolver = new LinearSolverType();
+
+    BlockSolverType * solver_ptr = new BlockSolverType(linearSolver);
+
+    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    g2o::SparseOptimizer optimizer;  
+    optimizer.setAlgorithm(solver);  
+    optimizer.setVerbose(false);     
+
+    // the size of pos_est = the size of delta_p_est + 1 = the size of distances + 1
+    // add vertexes for position
+    vector<VertexTran*> vertex_pos;
+    for(size_t i=0;i<pos_est.size();i++){
+        VertexTran *v = new VertexTran();
+        v->setEstimate(pos_est[i]);
+        v->setId(i);
+        if (i==0) v->setFixed(true); // do not optimize the first position
+        optimizer.addVertex(v);
+        vertex_pos.push_back(v);
+    }  
+
+    // add edges for relative position
+    for(size_t i=1;i<pos_est.size();i++){
+        Edge3d *edge = new Edge3d();
+        edge->setId(i-1);
+        edge->setVertex(0, vertex_pos[i]);   // time t           
+        edge->setVertex(1, vertex_pos[i-1]);   // time t-1
+        edge->setMeasurement(delta_p_est[i-1]);      
+        edge->setInformation(Eigen::Matrix3d::Identity()); 
+        optimizer.addEdge(edge);
+    }
+
+    // add edges for acoustic 
+    for(size_t i=1;i<pos_est.size();i++){
+        for (int j = 0; j < pose_others.size(); j++) {
+            EdgeDistS *edge = new EdgeDistS(pose_others[j],scale);
+            edge->setId((i-1)*4+j+pos_est.size()-1);
+            edge->setVertex(0, vertex_pos[i]);              
+            double dist = distances[i-1][j]; 
+            edge->setMeasurement(dist);      
+            edge->setInformation(Eigen::Matrix<double, 1, 1>::Identity()); 
+            optimizer.addEdge(edge);
+        }
+    }
+
+    cout << "start optimization" << endl;
+    chrono::steady_clock::time_point t1 = chrono::steady_clock::now();
+    optimizer.initializeOptimization();
+    optimizer.optimize(10);
+    chrono::steady_clock::time_point t2 = chrono::steady_clock::now();
+    chrono::duration<double> time_used = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
+    cout << "solve time cost = " << time_used.count() << " seconds. " << endl;
+
+    // update estimation
+    for(size_t i=0;i<pos_est.size();i++){
+        pos_est[i] = vertex_pos[i]->estimate(); 
+        cout << "estimated pose: " << pos_est[i].transpose() << endl; 
+    }
+}
+
 } //namespace ORB_SLAM

@@ -101,6 +101,8 @@ public:
     // acoustic related optimization
     void static PoseOptimizationDistanceGivenScale(Eigen::Vector3d &pose_est, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances); 
     void static PoseOptimizationDistanceRegu(Eigen::Vector3d &pose_est, Eigen::Vector3d pose_last, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances); 
+    void static IMUAcousticOptimization(vector<Eigen::Vector3d> &pos_est, vector<Eigen::Vector3d> &vel_est, vector<Eigen::Vector3d> delta_pos, vector<Eigen::Vector3d> delta_vel, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances);
+    void static IMUAcousticKeyOptimization(vector<Eigen::Vector3d> &pos_est, vector<Eigen::Vector3d> delta_p_est, vector<vector<double>> distances, double scale, vector<Eigen::Vector3d> pose_others); 
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
@@ -163,6 +165,34 @@ private:
   Eigen::Vector3d _pos; // position of the other user
   double _scale; // scale
 };
+
+class Edge3d : public g2o::BaseBinaryEdge<3,Eigen::Vector3d, VertexTran, VertexTran>
+{
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    Edge3d(): BaseBinaryEdge()
+    {}
+
+    virtual void computeError() override {
+        // time slot t
+        const VertexTran* v1 = static_cast<VertexTran*>(_vertices[0]);
+        Eigen::Vector3d T1 = v1->estimate();
+        // time slot t-1
+        const VertexTran* v2 = static_cast<VertexTran*>(_vertices[1]);
+        Eigen::Vector3d T2 = v2->estimate();
+        _error << _measurement - (T1-T2);
+        
+        //cout << "measure " << _measurement << endl;
+        //cout << "calculate error " << _error << endl; 
+    }
+
+    virtual bool read(std::istream& in) override { return true; }
+
+    virtual bool write(std::ostream& out) const override { return true; }
+private:
+};
+
 
 } //namespace ORB_SLAM3
 
