@@ -123,6 +123,7 @@ int main(int argc, char **argv)
     double t_track = 0.f;
 
     int proccIm = 0;
+    int lostFrames = 0;
     for (seq = 0; seq<num_seq; seq++)
     {
 
@@ -139,10 +140,15 @@ int main(int argc, char **argv)
 
             // modify the value of the input image to simulate the blocked camera
             //cout << im.rows << im.cols << endl; 
-            if (ni>600) {
+            if (ni>500) {
+                double ratio = 0.8;
+                int hide_height = im.rows*sqrt(ratio);
+                int hide_width = im.cols*sqrt(ratio);
+                int start_row = rand()%(im.rows-hide_height);
+                int start_col = rand()%(im.cols-hide_width);
                 //cout << vstrImageFilenames[seq][ni] << endl; 
-                for (int i=0;i<im.rows;i++){
-                    for (int j=im.cols*10/10;j<im.cols;j++){
+                for (int i=start_row;i<start_row+hide_height;i++){
+                    for (int j=start_col;j<start_col+hide_width;j++){
                         //cout << i << j << endl; 
                         im.at<uchar>(i,j) = (uchar) 0; 
                     }
@@ -152,10 +158,10 @@ int main(int argc, char **argv)
             //cout << (int) im.at<uchar>(0,0) << endl;  
             //im.at<uchar>(0,0) = (uchar) 255; 
             //cout << (int) im.at<uchar>(0,0) << endl;  
-            if (ni>1000) {
+            /*if (ni>1500) {
                 cout << "stop SLAM earlier" << endl;
                 break; 
-            }
+            }*/
 
             // clahe
             clahe->apply(im,im);
@@ -224,6 +230,8 @@ int main(int argc, char **argv)
             // Pass the image to the SLAM system
             // cout << "tframe = " << tframe << endl;
             SLAM.TrackMonocular(im,tframe,vImuMeas); // TODO change to monocular_inertial
+            if (SLAM.GetTrackingState() > 2)
+                lostFrames++;
 
     #ifdef COMPILEDWITHC11
             std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
@@ -249,8 +257,9 @@ int main(int argc, char **argv)
             else if(ni>0)
                 T = tframe-vTimestampsCam[seq][ni-1];
 
-            if(ttrack<T)
-                usleep((T-ttrack)*1e6); // 1e6
+            // let the slam display in a speed same as the original image sequence
+            //if(ttrack<T)
+            //    usleep((T-ttrack)*1e6); // 1e6
 
         }
         if(seq < num_seq - 1)
@@ -290,6 +299,7 @@ int main(int argc, char **argv)
     {
         totaltime+=vTimesTrack[ni];
     }
+    cout << "lost frames: " << lostFrames << endl; 
     cout << "-------" << endl << endl;
     cout << "median tracking time: " << vTimesTrack[nImages[0]/2] << endl;
     cout << "mean tracking time: " << totaltime/proccIm << endl;

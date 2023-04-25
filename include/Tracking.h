@@ -150,6 +150,7 @@ public:
 
     // indicates the client ID, each client binds with a tracking thread
     int clientID=0; 
+    Eigen::Quaterniond qRwg; // quaternion of the rotation from gravity to world
 
     // Current Frame
     Frame mCurrentFrame;

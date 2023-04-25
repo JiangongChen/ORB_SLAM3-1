@@ -1733,6 +1733,10 @@ Sophus::SE3f Tracking::GrabImageEdge(Frame* frame){
     lastID = mCurrentFrame.mnId;
     Track();
 
+    // print the R_wg in quartenion
+    Eigen::Quaterniond q(mpLocalMapper->mRwg);
+    qRwg = q; 
+    //std::cout << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl; 
     return mCurrentFrame.GetPose();
 }
 
@@ -1776,7 +1780,7 @@ void Tracking::PreintegrateIMU()
                 }
                 else if(m->t<mCurrentFrame.mTimeStamp-mImuPer)
                 {
-                    mvImuFromLastFrame.push_back(*m);
+                    mvImuFromLastFrame.push_back(*m); // here the IMU data are unprocessed raw data
                     mlQueueImuData.pop_front();
                 }
                 else
