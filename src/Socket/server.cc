@@ -37,7 +37,7 @@ Server::Server():
 }
 
 Server::Server(const string &strSettingsFile, ORB_SLAM3::System *sys):
-    client_num(0), client_num_ac(0), max_client_num(2), opt(1), listenFlag(true), listenFlagAcoustic(true), est_scale(1.0){
+    client_num(0), client_num_ac(0), max_client_num(5), opt(1), listenFlag(true), listenFlagAcoustic(true), est_scale(1.0){
     // initialize the server
     //hello = "Hello from server";
     settingFile = strSettingsFile; 
@@ -170,7 +170,7 @@ void Server::ListeningAcoustic(){
     chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
     chrono::steady_clock::time_point prev = std::chrono::steady_clock::now();
     double gap = std::chrono::duration_cast<std::chrono::duration<double> >(now - start_time).count();
-    while(gap < 300){
+    while(gap < 1.2){
         if (std::chrono::duration_cast<std::chrono::duration<double> >(now - prev).count()<1){
             usleep(10000); 
             now = std::chrono::steady_clock::now();
@@ -180,9 +180,9 @@ void Server::ListeningAcoustic(){
             char* msg = "emit\n"; 
             client->sendMsgAcoustic(msg); 
             //if (client->id_ == 2)
-                usleep(1000000); // emit signal in an interval of 1 second 
+            //    usleep(1000000); // emit signal in an interval of 1 second 
         }
-        usleep(2000000); // sleep several seconds between each round
+        usleep(300000); // gap between each release of acoustic signals, in nanoseconds
         now = std::chrono::steady_clock::now();
         prev = std::chrono::steady_clock::now();
         gap = std::chrono::duration_cast<std::chrono::duration<double> >(now - start_time).count();

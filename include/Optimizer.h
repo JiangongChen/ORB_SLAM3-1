@@ -25,6 +25,7 @@
 #include "KeyFrame.h"
 #include "LoopClosing.h"
 #include "Frame.h"
+#include "G2oTypes.h"
 
 #include <math.h>
 
@@ -104,6 +105,9 @@ public:
     void static IMUAcousticOptimization(vector<Eigen::Vector3d> &pos_est, vector<Eigen::Vector3d> &vel_est, vector<Eigen::Vector3d> delta_pos, vector<Eigen::Vector3d> delta_vel, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances);
     void static IMUAcousticKeyOptimization(vector<Eigen::Vector3d> &pos_est, vector<Eigen::Vector3d> delta_p_est, vector<vector<double>> distances, double scale, vector<Eigen::Vector3d> pose_others); 
 
+    // calibration for microphone
+    void static CalibOptimization(Eigen::Vector3d &t_mc, double* scale, vector<Sophus::SE3d> pose_u0, vector<Sophus::SE3d> pose_others, vector<vector<double>> distances);
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
@@ -127,6 +131,22 @@ public:
     virtual bool write(ostream& out) const {}
 };
 
+class VertexScaleSimple : public g2o::BaseVertex<1, double> {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        virtual void setToOriginImpl() override {
+        _estimate = 1;
+    }
+
+    virtual void oplusImpl(const double* update) override {
+        _estimate += update[0];
+    }
+
+    virtual bool read(istream& in) {}
+
+    virtual bool write(ostream& out) const {}
+};
 
 // unit edge with pose, considering distance
 class EdgeDistS : public g2o::BaseUnaryEdge<1, double, VertexTran> {
@@ -140,7 +160,7 @@ public:
         const VertexTran* v = static_cast<VertexTran*>(_vertices[0]);
         Eigen::Vector3d T = v->estimate();
         //cout << "T " << T << endl;
-        double s = _scale; 
+        double s = _scale; // scale converts from slam to real world
         _error(0, 0) = _measurement - s*sqrt((T-_pos).dot(T-_pos));
         
         //cout << "measure " << _measurement << endl;
@@ -192,6 +212,37 @@ public:
     virtual bool write(std::ostream& out) const override { return true; }
 private:
 };
+
+class EdgeCalib : public g2o::BaseBinaryEdge<1,double, VertexTran, VertexScale>
+{
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    EdgeCalib(Sophus::SE3d pose0, Sophus::SE3d pose1): BaseBinaryEdge(), pos0_(pose0), pos1_(pose1)
+    {}
+
+    virtual void computeError() override {
+        // scale converts from real world to slam
+        const VertexTran* v1 = static_cast<VertexTran*>(_vertices[0]);
+        Eigen::Vector3d t_mc = v1->estimate();
+        const VertexScale* v2 = static_cast<VertexScale*>(_vertices[1]);
+        double s = v2->estimate();
+        Eigen::Vector3d t_wm_0=pos0_.rotationMatrix()*(-s*t_mc)+pos0_.translation();
+        Eigen::Vector3d t_wm_1=pos1_.rotationMatrix()*(-s*t_mc)+pos1_.translation();
+
+        _error(0, 0) = _measurement - (t_wm_0-t_wm_1).norm()/s; // error needs to be in the scale of real world
+        //cout << "measure " << _measurement << endl;
+        //cout << "calculate error " << _error << endl; 
+    }
+
+    virtual bool read(std::istream& in) override { return true; }
+
+    virtual bool write(std::ostream& out) const override { return true; }
+private:
+    Sophus::SE3d pos0_;
+    Sophus::SE3d pos1_;
+};
+
 
 
 } //namespace ORB_SLAM3
