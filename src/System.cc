@@ -1358,6 +1358,24 @@ void System::SaveTrajectoryKITTI(const string &filename)
     f.close();
 }
 
+void System::PrintInfo(){
+    // print rotation from gravity to world
+    Eigen::Quaterniond q (mpLocalMapper->mRwg);
+    Eigen::Vector3d gz(0,0,9.81);
+    Eigen::Vector3d gw = q.toRotationMatrix()*gz;
+    std::cout << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl; 
+    std::cout << gw.transpose() << endl; 
+    std::cout << mpLocalMapper->mScale << endl;
+    std::cout << mpLocalMapper->mba.transpose() << endl;
+    std::cout << mpLocalMapper->mbg.transpose() << endl;
+    /*std::cout << "quaternion of gravity rotation: " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl; 
+    // print the scale,  Gz(0, 0, IMU::GRAVITY_VALUE); GRAVITY_VALUE=9.81;
+    std::cout << "gravity in the world: " << gw.transpose() << endl; 
+    std::cout << "m scale: " << mpLocalMapper->mScale << endl;
+    std::cout << "image scale: " << GetImageScale() << endl;
+    std::cout << "bias acce " << mpLocalMapper->mba.transpose() << endl;
+    std::cout << "bias gyro " << mpLocalMapper->mbg.transpose() << endl;*/
+}
 
 void System::SaveDebugData(const int &initIdx)
 {

@@ -196,6 +196,8 @@ public:
 
     float GetImageScale();
 
+    void PrintInfo();
+
 #ifdef REGISTER_TIMES
     void InsertRectTime(double& time);
     void InsertResizeTime(double& time);

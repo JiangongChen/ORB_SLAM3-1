@@ -90,9 +90,7 @@ int main(int argc, char **argv)
         usleep(1000000);
     }
 
-    // print rotation from gravity to world
-    Eigen::Quaterniond q = SLAM->GetTracker(0)->qRwg;
-    std::cout << "quaternion of gravity rotation: " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl; 
+    SLAM->PrintInfo();
 
     // request close of the server
     server->Close(); 
