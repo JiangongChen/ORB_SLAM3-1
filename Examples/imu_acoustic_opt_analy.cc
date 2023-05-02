@@ -5,7 +5,9 @@ using std::cout;
 using std::endl; 
 void readDistances(const string & filename, vector<double>& ts, vector<double>& distances);
 void readDistances(const string & filename, vector<double>& ts, vector<vector<double>>& distances);
+void readDistancesAndPose(const string & filename, vector<double>& ts, vector<Eigen::Vector3d>& poses, vector<vector<double>>& distances);
 void readPose(const string& filename, Sophus::SE3d &pose);
+void readSimPoses(const string& filename, vector<Eigen::Vector3d>& poses);
 void readTraj(const string& filename, vector<double>& tss, vector<g2o::SE3Quat> &traj);
 void readTrajNoMark(const string& filename, vector<double>& tss, vector<Sophus::SE3d> &traj);
 void readIMU(const string& filename, vector<double>& tss, vector<Eigen::Vector3d>& acces, vector<Eigen::Vector3d>& gyros);
@@ -19,66 +21,104 @@ int main(int argc, char **argv)
     {
         cerr << endl << "Usage: ./opt_analy path_to_distances_measurements path_to_traj_file path_to_imu_file path_to_store_output smartphone_setup" << endl;
         cerr << endl << "Or: ./opt_analy path_to_distances_measurements path_to_traj_file path_to_imu_file path_to_velocity path_to_velocity_filtered path_to_store_output smartphone_setup" << endl;
-        cerr << endl << "Or: ./opt_analy path_to_distances path_to_store_output" << endl;
-        cerr << endl << "Or: ./opt_analy path_to_distances path_to_slam_trajectory path_to_store_output" << endl;
+        cerr << endl << "Or: ./opt_analy folder_name path_to_store_output" << endl;
+        //cerr << endl << "Or: ./opt_analy folder_name path_to_slam_trajectory path_to_store_output" << endl;
+        cerr << endl << "Or: ./opt_analy folder_name path_to_store_output option" << endl;
         return 1;
     }
 
     if (argc==4){
-        // calibration, correct the transformation and scale
-        Eigen::Vector3d t_mc(-0.1377,-0.01991,0.00765);
-        double s = 0.58;
-        vector<vector<double>> all_distances; // all distances measurement from user0 to other users, four values form a group, to u1,2,3,4
-        vector<double> dist_ts; // timestamp for distance measurement 
-        string p_name = argv[1];
-        string f_name = p_name + "distances.csv";
-        readDistances(f_name, dist_ts, all_distances);
-        vector<Sophus::SE3d> poses_u0;
-        vector<double> t_u0;
-        f_name = p_name+argv[2];
-        readTrajNoMark(f_name,t_u0,poses_u0);
-        /*for(int i=0;i<10;i++){
-            cout<<poses_u0[i].translation().transpose()<<endl;
-            cout<<(poses_u0[i].rotationMatrix()*(-s*t_mc)+poses_u0[i].translation()).transpose()<<endl;
-            //cout<<poses_u0[i].rotationMatrix()<<endl;
-        }*/
-        vector<Sophus::SE3d> poses_others;
-        vector<Eigen::Quaterniond> q_others;
-        vector<Eigen::Vector3d> t_others;
-        /*q_others.push_back(Eigen::Quaterniond(-0.0447343000000000,-0.00690550000000000,0.731727500000000,-0.680092600000000)); // eigen format quaternion: w,x,y,z
-        t_others.push_back(Eigen::Vector3d(0.568148400000000,-0.504411800000000,-0.228592800000000));
-        q_others.push_back(Eigen::Quaterniond(0.000392000000000000,-0.0248527000000000,0.731722300000000,-0.681149500000000));
-        t_others.push_back(Eigen::Vector3d(0.672983000000000,-0.385356300000000,-0.0704225000000000));
-        q_others.push_back(Eigen::Quaterniond(0.0415944000000000,-0.00769230000000000,0.741368600000000,-0.669763700000000));
-        t_others.push_back(Eigen::Vector3d(0.772508600000000,-0.479500600000000,-0.140420300000000));
-        q_others.push_back(Eigen::Quaterniond(-0.0194217000000000,0.0523481000000000,0.744451500000000,-0.665337900000000));
-        t_others.push_back(Eigen::Vector3d(0.842432800000000,-0.343560700000000,0.0620087000000000));*/
-        for(int i=0;i<4;i++){
-            //Sophus::SE3d pos0_(q_others[i],t_others[i]);
-            Sophus::SE3d pos0_;
-            string t_name = argv[1];
-            t_name = t_name +"allTrajectory"+std::to_string(i+1)+".txt";
-            readPose(t_name,pos0_);
-            poses_others.push_back(pos0_);
-            //cout<<(pos0_.rotationMatrix()*(-s*t_mc)+pos0_.translation()).transpose()<<endl;
-        }
-        /*Eigen::Quaterniond q0(-0.0447343000000000,-0.00690550000000000,0.731727500000000,-0.680092600000000); // eigen format quaternion: w,x,y,z
-        Eigen::Vector3d t0(0.568148400000000,-0.504411800000000,-0.228592800000000);
-        Eigen::Quaterniond q1(0.000392000000000000,-0.0248527000000000,0.731722300000000,-0.681149500000000);
-        Eigen::Vector3d t1(0.672983000000000,-0.385356300000000,-0.0704225000000000);
-        Sophus::SE3d pos0_(q0,t0);
-        Sophus::SE3d pos1_(q1,t1);
-        //Eigen::Vector3d t_wm_0=pos0_.rotationMatrix()*(-s*t_mc)+pos0_.translation();
-        //Eigen::Vector3d t_wm_1=pos1_.rotationMatrix()*(-s*t_mc)+pos1_.translation();
-        //cout << t_wm_0.transpose() << endl;
-        //cout << t_wm_1.transpose() << endl;*/
+        int option = stoi(argv[3]);
+        if (option==0){
+            // calibration, correct the transformation and scale
+            Eigen::Vector3d t_mc(-0.1377,-0.01991,0.00765);
+            double s = 0.58;
+            vector<vector<double>> all_distances; // all distances measurement from user0 to other users, four values form a group, to u1,2,3,4
+            vector<double> dist_ts; // timestamp for distance measurement 
+            string p_name = argv[1];
+            string f_name = p_name + "distances.csv";
+            readDistances(f_name, dist_ts, all_distances);
+            vector<Sophus::SE3d> poses_u0;
+            vector<double> t_u0;
+            f_name = p_name+argv[2];
+            readTrajNoMark(f_name,t_u0,poses_u0);
+            /*for(int i=0;i<10;i++){
+                cout<<poses_u0[i].translation().transpose()<<endl;
+                cout<<(poses_u0[i].rotationMatrix()*(-s*t_mc)+poses_u0[i].translation()).transpose()<<endl;
+                //cout<<poses_u0[i].rotationMatrix()<<endl;
+            }*/
+            vector<Sophus::SE3d> poses_others;
+            vector<Eigen::Quaterniond> q_others;
+            vector<Eigen::Vector3d> t_others;
+            /*q_others.push_back(Eigen::Quaterniond(-0.0447343000000000,-0.00690550000000000,0.731727500000000,-0.680092600000000)); // eigen format quaternion: w,x,y,z
+            t_others.push_back(Eigen::Vector3d(0.568148400000000,-0.504411800000000,-0.228592800000000));
+            q_others.push_back(Eigen::Quaterniond(0.000392000000000000,-0.0248527000000000,0.731722300000000,-0.681149500000000));
+            t_others.push_back(Eigen::Vector3d(0.672983000000000,-0.385356300000000,-0.0704225000000000));
+            q_others.push_back(Eigen::Quaterniond(0.0415944000000000,-0.00769230000000000,0.741368600000000,-0.669763700000000));
+            t_others.push_back(Eigen::Vector3d(0.772508600000000,-0.479500600000000,-0.140420300000000));
+            q_others.push_back(Eigen::Quaterniond(-0.0194217000000000,0.0523481000000000,0.744451500000000,-0.665337900000000));
+            t_others.push_back(Eigen::Vector3d(0.842432800000000,-0.343560700000000,0.0620087000000000));*/
+            for(int i=0;i<4;i++){
+                //Sophus::SE3d pos0_(q_others[i],t_others[i]);
+                Sophus::SE3d pos0_;
+                string t_name = argv[1];
+                t_name = t_name +"allTrajectory"+std::to_string(i+1)+".txt";
+                readPose(t_name,pos0_);
+                poses_others.push_back(pos0_);
+                //cout<<(pos0_.rotationMatrix()*(-s*t_mc)+pos0_.translation()).transpose()<<endl;
+            }
+            /*Eigen::Quaterniond q0(-0.0447343000000000,-0.00690550000000000,0.731727500000000,-0.680092600000000); // eigen format quaternion: w,x,y,z
+            Eigen::Vector3d t0(0.568148400000000,-0.504411800000000,-0.228592800000000);
+            Eigen::Quaterniond q1(0.000392000000000000,-0.0248527000000000,0.731722300000000,-0.681149500000000);
+            Eigen::Vector3d t1(0.672983000000000,-0.385356300000000,-0.0704225000000000);
+            Sophus::SE3d pos0_(q0,t0);
+            Sophus::SE3d pos1_(q1,t1);
+            //Eigen::Vector3d t_wm_0=pos0_.rotationMatrix()*(-s*t_mc)+pos0_.translation();
+            //Eigen::Vector3d t_wm_1=pos1_.rotationMatrix()*(-s*t_mc)+pos1_.translation();
+            //cout << t_wm_0.transpose() << endl;
+            //cout << t_wm_1.transpose() << endl;*/
 
-        // optimze the scale and transformation
-        ORB_SLAM3::Optimizer::CalibOptimization(t_mc, &s, poses_u0, poses_others, all_distances);
-        cout << t_mc.transpose() << endl;
-        cout << s << endl;
+            // optimze the scale and transformation
+            ORB_SLAM3::Optimizer::CalibOptimization(t_mc, &s, poses_u0, poses_others, all_distances);
+            cout << t_mc.transpose() << endl;
+            cout << s << endl;
+        }
+    
+        else if (option==1){
+            // non-linear optimization for simulated distance measurements
+            vector<Eigen::Vector3d> poses_other; // the poses of other users, IMU
+            string folder = argv[1];
+            readSimPoses(folder+"user_poses.txt", poses_other);
+            /*for(auto& p : poses_other){
+                cout << p.transpose() << endl;
+            }*/
+            vector<vector<double>> all_distances; // all distances measurement from user0 to other users, four values form a group, to u1,2,3,4
+            vector<double> dist_ts; // timestamp for distance measurement 
+            vector<Eigen::Vector3d> gt_poses;
+            readDistancesAndPose(folder+"distances.csv", dist_ts, gt_poses, all_distances);
+
+            vector<Eigen::Vector3d> est_poses;
+            // iterate over distances and conduct optimization
+            Eigen::Vector3d est; // initial pos
+            // use ground truth pose, so scale is 1, IMU pose
+            for(int ac_cnt=0; ac_cnt<all_distances.size(); ++ac_cnt){
+                est = gt_poses[ac_cnt];
+                ORB_SLAM3::Optimizer::PoseOptimizationDistanceGivenScale(est,1,poses_other,all_distances[ac_cnt]); 
+                est_poses.push_back(est);
+            }
+            writeData(folder+argv[2],dist_ts,est_poses);
+
+            // print to check the values
+            /*for(int i=0;i<4;++i){
+                cout << poses_other[i].transpose() << endl;
+            }
+            for(int i=0;i<4;++i){
+                cout << gt_poses[i].transpose() << " " << all_distances[i][0] << " " << all_distances[i][1] << " " << all_distances[i][2] << " " << all_distances[i][3] << endl;
+            }*/
+        }
     }
     else if (argc==3){
+        // non-linear optimization for practical distance measurements
         vector<Eigen::Vector3d> poses_other_users_m; // the poses of other users of microphone
         vector<Sophus::SE3d> poses_others;
         //Eigen::Vector3d t_mc(-0.180431, -0.0136339,  0.0612767);
@@ -508,6 +548,75 @@ void readDistances(const string & filename, vector<double>& ts, vector<vector<do
     fin.close();
 }
 
+void readDistancesAndPose(const string & filename, vector<double>& ts, vector<Eigen::Vector3d>& poses, vector<vector<double>>& distances){
+    // read distances and ground truth pose as initial value for optimization
+    ifstream fin(filename);
+    if (!fin) {
+        cout << "cannot find " << filename << "!" << endl;
+        return;
+    }
+    int cnt = 0;
+    string line;
+    vector<double> prev;
+    while (!fin.eof())
+    {
+        std::getline(fin, line);
+        string ts_d, dist, pos_v;
+        stringstream ss(line); 
+        char delim = ',';
+        std::getline(ss,ts_d,delim);
+        Eigen::Vector3d e_pos;
+        for(int i=0;i<3;i++){
+            std::getline(ss,pos_v,delim);
+            e_pos[i] = atof(pos_v.c_str());
+        }
+        poses.push_back(e_pos);
+        vector<double> dist_temp;
+        for(int i=0;i<4;i++){
+            std::getline(ss,dist,delim);
+            double d = atof(dist.c_str());
+            dist_temp.push_back(d);
+        }
+
+        if (cnt < 0)
+            cout << " ts: " << ts_d << " dist1: " << dist_temp[0] << " dist2: " << dist_temp[1] << " dist3: " << dist_temp[2] << " dist4: " << dist_temp[3] << endl;
+        cnt++;
+        if (fin.good() == false)
+            break;
+
+        prev = dist_temp;
+        distances.push_back(dist_temp);
+        ts.push_back(atof(ts_d.c_str()));
+    }
+    fin.close();
+}
+
+void readSimPoses(const string& filename, vector<Eigen::Vector3d>& poses){
+    ifstream fin(filename);
+    if (!fin) {
+        cout << "cannot find " << filename << "!" << endl;
+        return;
+    }
+    int cnt = 0;
+    string line;
+    while (!fin.eof())
+    {
+        std::getline(fin, line);
+        if (fin.good() == false)
+            break;
+        
+        stringstream ss(line); 
+        char delim = ' ';
+        string tx, ty, tz;
+        std::getline(ss,tx,delim);
+        std::getline(ss,ty,delim);
+        std::getline(ss,tz,delim);
+        Eigen::Vector3d pos(atof(tx.c_str()), atof(ty.c_str()), atof(tz.c_str()));
+        poses.push_back(pos);
+    }
+    fin.close();
+}
+
 void readPose(const string& filename, Sophus::SE3d &pose){
     ifstream fin(filename);
     if (!fin) {
@@ -692,11 +801,11 @@ void writeData(const string& filename, vector<double>& tss, vector<Eigen::Vector
     ofstream f;
     f.open(filename.c_str());
     //f << "#timeStamp tx ty tz" << endl; 
-    f << fixed;
+    f << fixed << setprecision(8);
     for (size_t i = 0; i < pos.size(); i++)
     {
         Eigen::Vector3d tp = pos[i]; 
-        f << setprecision(6) << tss[i] << "," << tp[0] << "," << tp[1] << "," << tp[2] << endl;
+        f << tss[i] << "," << tp[0] << "," << tp[1] << "," << tp[2] << endl;
     }
 
     f.close();

@@ -100,7 +100,7 @@ public:
     void static InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &scale);
 
     // acoustic related optimization
-    void static PoseOptimizationDistanceGivenScale(Eigen::Vector3d &pose_est, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances); 
+    void static PoseOptimizationDistanceGivenScale(Eigen::Vector3d &pose_est, double scale, vector<Eigen::Vector3d>& pose_others, vector<double>& distances); 
     void static PoseOptimizationDistanceRegu(Eigen::Vector3d &pose_est, Eigen::Vector3d pose_last, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances); 
     void static IMUAcousticOptimization(vector<Eigen::Vector3d> &pos_est, vector<Eigen::Vector3d> &vel_est, vector<Eigen::Vector3d> delta_pos, vector<Eigen::Vector3d> delta_vel, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances);
     void static IMUAcousticKeyOptimization(vector<Eigen::Vector3d> &pos_est, vector<Eigen::Vector3d> delta_p_est, vector<vector<double>> distances, double scale, vector<Eigen::Vector3d> pose_others); 

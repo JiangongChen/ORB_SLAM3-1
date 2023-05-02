@@ -5587,7 +5587,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
     pMap->IncreaseChangeIndex();
 }
 
-void Optimizer::PoseOptimizationDistanceGivenScale(Eigen::Vector3d &pose_est, double scale, vector<Eigen::Vector3d> pose_others, vector<double> distances){
+void Optimizer::PoseOptimizationDistanceGivenScale(Eigen::Vector3d &pose_est, double scale, vector<Eigen::Vector3d>& pose_others, vector<double>& distances){
     typedef g2o::BlockSolver<g2o::BlockSolverTraits<Eigen::Dynamic, Eigen::Dynamic>> BlockSolverType; 
     typedef g2o::LinearSolverDense<BlockSolverType::PoseMatrixType> LinearSolverType; 
 

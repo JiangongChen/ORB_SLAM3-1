@@ -34,7 +34,7 @@ void LoadImagesTUMVI(const string &strImagePath, const string &strPathTimes,
                 vector<string> &vstrImages, vector<double> &vTimeStamps);
 
 void LoadIMU(const string &strImuPath, vector<double> &vTimeStamps, vector<cv::Point3f> &vAcc, vector<cv::Point3f> &vGyro);
-
+void SaveTrajectory(const string& filename, const vector<Sophus::SE3f>& trajectory, vector<double>& timeStamps);
 
 double ttrack_tot = 0;
 int main(int argc, char **argv)
@@ -114,6 +114,10 @@ int main(int argc, char **argv)
     /*cout << "Start processing sequence ..." << endl;
     cout << "Images in the sequence: " << nImages << endl;
     cout << "IMU data in the sequence: " << nImu << endl << endl;*/
+
+    // export trajectory
+    vector<double> traj_ts;
+    vector<Sophus::SE3f> traj_poses;
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::IMU_MONOCULAR, true, 0, file_name);
@@ -265,6 +269,11 @@ int main(int argc, char **argv)
             //if(ttrack<T)
             //    usleep((T-ttrack)*1e6); // 1e6
 
+            traj_ts.push_back(tframe);
+            traj_poses.push_back(SLAM.GetTracker(0)->mCurrentFrame.GetImuPose()); 
+            //cout << ni << " " << tframe << endl;
+            //SLAM.PrintInfo();
+
         }
         if(seq < num_seq - 1)
         {
@@ -296,6 +305,8 @@ int main(int argc, char **argv)
         SLAM.SaveTrajectoryEuRoC("CameraTrajectory.txt");
         SLAM.SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory.txt");
     }
+
+    SaveTrajectory("IMUTrajectory.txt",traj_poses,traj_ts); 
 
     // print info 
     SLAM.PrintInfo();
@@ -384,3 +395,22 @@ void LoadIMU(const string &strImuPath, vector<double> &vTimeStamps, vector<cv::P
         }
     }
 }
+
+void SaveTrajectory(const string & filename, const vector<Sophus::SE3f>&trajectory, vector<double>& timeStamps) {
+    ofstream f;
+    f.open(filename.c_str());
+    f << "#timeStamp tx ty tz qx qy qz qw" << endl; 
+    f << fixed;
+    for (size_t i = 0; i < trajectory.size(); i++)
+    {
+        Sophus::SE3f pose_wb = trajectory[i]; // poses T_Wb
+        Eigen::Vector3f t_wb = pose_wb.translation();
+        Eigen::Quaternionf q = Eigen::Quaternionf(pose_wb.rotationMatrix()); 
+        f << setprecision(6) << timeStamps[i] << setprecision(7) << " " << t_wb[0] << " " << t_wb[1] << " " << t_wb[2]
+            << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+    }
+
+    f.close();
+    std::cout << endl << filename << " saved!" << endl;
+}
+
