@@ -1368,6 +1368,8 @@ void System::PrintInfo(){
     std::cout << mpLocalMapper->mScale << endl;
     std::cout << mpLocalMapper->mba.transpose() << endl;
     std::cout << mpLocalMapper->mbg.transpose() << endl;
+    std::cout << mpTracker->mCurrentFrame.GetVelocity().transpose() << endl;
+    std::cout << mpTracker->mCurrentFrame.GetImuPosition().transpose() << endl;
     /*std::cout << "quaternion of gravity rotation: " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl; 
     // print the scale,  Gz(0, 0, IMU::GRAVITY_VALUE); GRAVITY_VALUE=9.81;
     std::cout << "gravity in the world: " << gw.transpose() << endl; 
