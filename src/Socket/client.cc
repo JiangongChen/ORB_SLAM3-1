@@ -193,6 +193,10 @@ void Client::trackLoop(){
             }
 
             Sophus::SE3f tcw = server_->system->TrackEdge(im);
+
+            Eigen::Vector3f twc = -tcw.rotationMatrix().transpose() * tcw.translation();
+            vector<float> est_t{twc[0],twc[1],twc[2]};
+
             // detect the state of tracking to change the number of feature points
             if (!initFlag && server_->system->GetTrackingState(id_)!=2) {
                 sendMsg(nFeaturesInit);
@@ -209,6 +213,9 @@ void Client::trackLoop(){
             #endif
             double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
             updateTraj(tcw,ttrack,im->mTimeStamp,0); 
+
+            // send estimated pose and delay to clients
+            sendPoseDelay((float)ttrack,est_t);
         }
         else
             usleep(3000); 
@@ -253,6 +260,17 @@ void Client::rewriteTraj(int poseId, Sophus::SE3f mat){
 
 bool Client::sendMsg(int num){
     CmdPkt* pkt = new CmdPkt(0,num);  
+    unsigned char* head = pkt->getHead();
+    if (head == nullptr) return false;
+    send(connfd_, head, 2, 0);
+    int size = pkt->getTotalLength();
+    unsigned char* payload = pkt->getPayload();
+    send(connfd_, payload, size, 0);
+    return true; 
+}
+
+bool Client::sendPoseDelay(float d, vector<float> p){
+    CmdPkt* pkt = new CmdPkt(1,d,p);  
     unsigned char* head = pkt->getHead();
     if (head == nullptr) return false;
     send(connfd_, head, 2, 0);

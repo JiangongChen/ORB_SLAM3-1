@@ -143,7 +143,7 @@ int main(int argc, char **argv)
             im = cv::imread(vstrImageFilenames[seq][ni],cv::IMREAD_GRAYSCALE); //,cv::IMREAD_GRAYSCALE);
 
             // end after a specific number of frames
-            if (ni>1000)
+            if (ni>500)
                 break;
             
             // modify the value of the input image to simulate the blocked camera

@@ -34,6 +34,8 @@ public:
     bool CheckNewFrame();
     // send a number to the client
     bool sendMsg(int num);
+    // send estimated pose and slam processing delay to clients
+    bool sendPoseDelay(float d, vector<float> p);
     void sendMsgAcoustic(char* msg); 
     void updateTraj(Sophus::SE3f tcw, double ttrack, double timeStamp, int gt_id);
     int getLatestTraj(Sophus::SE3f &mat); 
