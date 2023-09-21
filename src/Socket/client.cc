@@ -59,7 +59,9 @@ id_(id), connfd_(connfd), nFeaturesInit(1000), nFeatures(500), k_track_(5), recv
     sendMsg(nFeaturesInit); 
 
     client_thread_ = std::thread(&Client::receiveLoop,this); 
+    //client_thread_.detach();
     tracking_thread_ = std::thread(&Client::trackLoop,this);
+    //tracking_thread_.detach();
 }
 
 void Client::AddAcoustic(int conn){
@@ -90,27 +92,27 @@ void Client::Close(){
 
 // fd: file descriptor
 void Client::receiveLoop() {
+    unsigned char header[2] = { 0 };
+    char buffer[1024] = { 0 };
+    /*char* msg = "Hello from server";
     // test simple connection
-    /*char buffer[1024] = { 0 };
-    char* msg = "Hello from server";
-    int valread = read(connfd_, buffer, 1024);
+    int valread = read(connfd_, buffer, 10024);
     printf("%s\n", buffer);
     send(connfd_, msg, strlen(msg), 0);
     printf("Hello message sent\n");
     printf("client %d closed \n",id_);*/
-
-    unsigned char header[2] = { 0 };
-    unsigned char buffer[1024] = {0}; 
-    int valread = 0; 
+    int valread;
     while (valread!=-1&&recvFlag){
         valread = read(connfd_, header, 2);
         if (valread!=2) {
             cout << "client " << id_ << " disconnected!" << endl; 
             break;
         }
+        std::chrono::steady_clock::time_point tt1 = std::chrono::steady_clock::now();
+        //sendPoseDelay(0,vector<float>(3));
         // get the packet size
         unsigned short size = ((unsigned short) header[0])*256 + (unsigned short)header[1]; 
-        //cout << "current packet size: " << size << endl; 
+        //cout << "current packet size from client: " << size << endl; 
         unsigned char payload[size];
         int recv = 0;
         while (recv < size){
@@ -123,6 +125,10 @@ void Client::receiveLoop() {
             payload[i] = buffer[i-recv];
         recv = recv + valread; 
         }
+        //sendPoseDelay(0,vector<float>(3));
+        std::chrono::steady_clock::time_point tt = std::chrono::steady_clock::now();
+        //cout << "time to receive slam packet" << std::chrono::duration_cast<std::chrono::duration<double> >(tt-tt1).count() << endl;
+        recv_times.push_back(tt);
         SlamPktVI* pkt = new SlamPktVI(payload,size); 
         vector<cv::KeyPoint> keypoints_ = pkt->getKeyPoints(); 
         cv::Mat descriptors_ = pkt->getDescriptors();
@@ -146,29 +152,6 @@ void Client::receiveLoop() {
     }
 }
 
-void Client::acousticLoop(){
-    char buffer[1024] = { 0 };
-    std::ostringstream ss;
-    ss << id_ << "," << server_->max_client_num << "\n"; 
-    const char* start_msg = ss.str().c_str(); 
-    send(connfd_ac_, start_msg, strlen(start_msg), 0); 
-    std::cout << "client " << id_ << " acoustic established" << endl; 
-    int valread = read(connfd_ac_, buffer, 1024);
-    while(recvFlagAcoustic) {
-        printf("received %s", buffer);
-        string msg(buffer); 
-        vector<string> tokens = split(msg,' ');
-        int group_num = tokens.size()/2; 
-        for (int i=0;i<group_num;i++) {
-          cout << "client " << id_ << " calculated interval of client " << tokens[2*i+0] << ": " << tokens[2*i+1] << endl; 
-          intervals[(int)atof(tokens[2*i+0].c_str())].push((int)atof(tokens[2*i+1].c_str())); 
-        }
-        cout << endl; 
-        valread = read(connfd_ac_, buffer, 1024);
-        if (valread<=0) break;
-    }
-    std::cout << "client " << id_ << " acoustic stopped" << endl; 
-}
 
 void Client::trackLoop(){
     while(recvFlag){
@@ -213,13 +196,42 @@ void Client::trackLoop(){
             #endif
             double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
             updateTraj(tcw,ttrack,im->mTimeStamp,0); 
-
+            t2 = std::chrono::steady_clock::now();
+            send_times.push_back(t2);
+            double tprocess= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - recv_times[send_times.size()-1]).count();
             // send estimated pose and delay to clients
-            sendPoseDelay((float)ttrack,est_t);
+            sendPoseDelay((float)tprocess,est_t);
         }
-        else
+        else {
+            //sendTrivialMsg();
             usleep(3000); 
+        }
     }
+}
+
+
+void Client::acousticLoop(){
+    char buffer[1024] = { 0 };
+    std::ostringstream ss;
+    ss << id_ << "," << server_->max_client_num << "\n"; 
+    const char* start_msg = ss.str().c_str(); 
+    send(connfd_ac_, start_msg, strlen(start_msg), 0); 
+    std::cout << "client " << id_ << " acoustic established" << endl; 
+    int valread = read(connfd_ac_, buffer, 1024);
+    while(recvFlagAcoustic) {
+        printf("received %s", buffer);
+        string msg(buffer); 
+        vector<string> tokens = split(msg,' ');
+        int group_num = tokens.size()/2; 
+        for (int i=0;i<group_num;i++) {
+          cout << "client " << id_ << " calculated interval of client " << tokens[2*i+0] << ": " << tokens[2*i+1] << endl; 
+          intervals[(int)atof(tokens[2*i+0].c_str())].push((int)atof(tokens[2*i+1].c_str())); 
+        }
+        cout << endl; 
+        valread = read(connfd_ac_, buffer, 1024);
+        if (valread<=0) break;
+    }
+    std::cout << "client " << id_ << " acoustic stopped" << endl; 
 }
 
 void Client::updateTraj(Sophus::SE3f tcw, double ttrack, double timeStamp, int gt_id){
@@ -271,6 +283,18 @@ bool Client::sendMsg(int num){
 
 bool Client::sendPoseDelay(float d, vector<float> p){
     CmdPkt* pkt = new CmdPkt(1,d,p);  
+    unsigned char* head = pkt->getHead();
+    if (head == nullptr) return false;
+    //cout << "server sent packet size: " << pkt->getTotalLength() << endl;
+    send(connfd_, head, 2, 0);
+    int size = pkt->getTotalLength();
+    unsigned char* payload = pkt->getPayload();
+    send(connfd_, payload, size, 0);
+    return true; 
+}
+
+bool Client::sendTrivialMsg(){
+    CmdPkt* pkt = new CmdPkt(20,100);  
     unsigned char* head = pkt->getHead();
     if (head == nullptr) return false;
     send(connfd_, head, 2, 0);

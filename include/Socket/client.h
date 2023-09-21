@@ -36,6 +36,7 @@ public:
     bool sendMsg(int num);
     // send estimated pose and slam processing delay to clients
     bool sendPoseDelay(float d, vector<float> p);
+    bool sendTrivialMsg();
     void sendMsgAcoustic(char* msg); 
     void updateTraj(Sophus::SE3f tcw, double ttrack, double timeStamp, int gt_id);
     int getLatestTraj(Sophus::SE3f &mat); 
@@ -93,6 +94,9 @@ public:
     vector<double> vTimestamps; 
     vector<int> trajectory_gt_points; 
     vector<ORB_SLAM3::IMU::Point> vImuMeas;
+    // timestamps
+    vector<std::chrono::steady_clock::time_point> send_times;
+    vector<std::chrono::steady_clock::time_point> recv_times;
 }; 
 
 #endif

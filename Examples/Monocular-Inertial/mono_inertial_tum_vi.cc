@@ -143,12 +143,12 @@ int main(int argc, char **argv)
             im = cv::imread(vstrImageFilenames[seq][ni],cv::IMREAD_GRAYSCALE); //,cv::IMREAD_GRAYSCALE);
 
             // end after a specific number of frames
-            if (ni>500)
-                break;
+            //if (ni>500)
+            //    break;
             
             // modify the value of the input image to simulate the blocked camera
             //cout << im.rows << im.cols << endl; 
-            /*if (ni>500) {
+            if (ni>500) {
                 double ratio = 0.8;
                 int hide_height = im.rows*sqrt(ratio);
                 int hide_width = im.cols*sqrt(ratio);
@@ -161,7 +161,7 @@ int main(int argc, char **argv)
                         im.at<uchar>(i,j) = (uchar) 0; 
                     }
                 }
-            }*/
+            }
             //cout << im.type() << endl; 
             //cout << (int) im.at<uchar>(0,0) << endl;  
             //im.at<uchar>(0,0) = (uchar) 255; 
@@ -271,7 +271,7 @@ int main(int argc, char **argv)
 
             traj_ts.push_back(tframe);
             traj_poses.push_back(SLAM.GetTracker(0)->mCurrentFrame.GetImuPose()); 
-            //cout << ni << " " << tframe << endl;
+            cout << ni << " " << tframe << endl;
             //SLAM.PrintInfo();
 
         }
